@@ -1,0 +1,81 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d35f4a0b6c7e18fc2345678901234901, type: 3}
+  m_Name: Day1Dialogue
+  m_EditorClassIdentifier:
+  Nodes:
+  - Id: DAY1_SEONGCHEOL_INTRO
+    SpeakerId: park_seongcheol
+    Text: "어이, 자네. 결국 이곳을 맡기로 했나. 그런데 기본적인 가공법은 아나?"
+    NextNodeId: DAY1_SEOYEON_ARRIVAL
+    EventId: 
+    Choices:
+    - Id: intro_basic
+      Text: "기본 정도는 알고 있습니다."
+      NextNodeId: DAY1_SEOYEON_ARRIVAL
+      TutorialDetail: 0
+    - Id: intro_rusty
+      Text: "오래돼서 좀 가물가물합니다."
+      NextNodeId: DAY1_SEOYEON_ARRIVAL
+      TutorialDetail: 1
+    - Id: intro_beginner
+      Text: "잘 모릅니다."
+      NextNodeId: DAY1_SEOYEON_ARRIVAL
+      TutorialDetail: 2
+  - Id: DAY1_SEOYEON_ARRIVAL
+    SpeakerId: lee_seoyeon
+    Text: "성철 아저씨! 잠깐만 와봐요. 기계가 또 안 돌아가요!"
+    NextNodeId: DAY1_PUMP_DIAGNOSIS
+    EventId: FarmerArrived
+    Choices: []
+  - Id: DAY1_PUMP_DIAGNOSIS
+    SpeakerId: park_seongcheol
+    Text: "모터 문제는 아닌 것 같고… 축이 못 쓰게 됐어. 새로 만드는 게 낫겠는데."
+    NextNodeId: DAY1_RULER_ATTEMPT
+    EventId: BrokenShaftFound
+    Choices: []
+  - Id: DAY1_RULER_ATTEMPT
+    SpeakerId: park_seongcheol
+    Text: "……뭘로 쟀나? 그건 정밀하게 재는 데 쓰는 자가 아닐 텐데."
+    NextNodeId: DAY1_VERNIER_TUTORIAL
+    EventId: VernierReceived
+    Choices: []
+  - Id: DAY1_VERNIER_TUTORIAL
+    SpeakerId: park_seongcheol
+    Text: "여기가 본척이고, 이쪽 움직이는 게 부척이야. 본척에서 먼저 값을 읽게."
+    NextNodeId: 
+    EventId: 
+    Choices: []
+  - Id: DAY1_PUMP_INSTALL
+    SpeakerId: park_seongcheol
+    Text: "새로 만든 축을 설치하겠네. 고정이 끝나면 펌프를 돌려보세."
+    NextNodeId:
+    EventId:
+    Choices: []
+  - Id: DAY1_VERNIER_TUTORIAL_BRIEF
+    SpeakerId: park_seongcheol
+    Text: "본척과 부척을 읽고, 자네가 읽은 치수를 직접 기록하게."
+    NextNodeId:
+    EventId:
+    Choices: []
+  - Id: DAY1_VERNIER_TUTORIAL_DETAILED
+    SpeakerId: park_seongcheol
+    Text: "먼저 부척의 0이 본척 어디를 지났는지 보게. 다음엔 본척과 나란히 맞는 부척 눈금을 찾는 거야. 그 눈금의 몫을 더해 자네가 읽은 치수를 직접 기록하게."
+    NextNodeId:
+    EventId:
+    Choices: []
+  - Id: DAY1_PUMP_REPAIRED
+    SpeakerId: lee_seoyeon
+    Text: "됐다……. 진짜 됐어."
+    NextNodeId:
+    EventId:
+    Choices: []

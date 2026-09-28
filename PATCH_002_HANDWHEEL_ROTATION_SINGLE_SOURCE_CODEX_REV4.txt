@@ -1,0 +1,157 @@
+LAST MACHINIST — CODEX PATCH_002 REVISION 4
+HANDWHEEL ROTATION = SINGLE SOURCE OF TRUTH
+
+[목적]
+REV3 목표인 ×1 기준 90°=1mm를 유지한다.
+현재 Wheel 한 바퀴가 약 60mm 이상 이송되는 현상을 단순 보정계수로 숨기지 말고 원인을 찾아 구조적으로 수정한다.
+이 문제가 과거 15°=1mm 시점부터 존재했을 가능성을 전제로 전체 입력→이송 경로를 AUDIT한다.
+
+[최종 수학 규칙]
+movementMm = (deltaAngleDegrees / 90.0) × currentScale
+
+×1:
+90°=1mm / 180°=2mm / 360°=4mm / 720°=8mm
+
+×10: 90°=10mm
+×100: 90°=100mm
+
+[핵심 원칙]
+실제 Wheel의 회전각 변화량 deltaAngle을 Axis 이송량 계산의 유일한 Source of Truth로 사용한다.
+
+정상:
+입력 → Wheel 회전각 → deltaAngle → /90 → 배율 1회 적용 → 기존 Axis Movement Command
+
+금지:
+dragPixels→mm
+mouseSpeed→mm
+pointer 이동거리→mm
+frame 수→mm
+Time.deltaTime 기반 추가 이송
+Wheel 시각 회전과 별도의 feed 계산
+동일 입력의 중복 MoveAxis 호출
+
+입력 장치는 Wheel을 몇 도 돌릴지만 결정한다. 최종 mm는 반드시 deltaAngle에서 계산한다.
+
+[AUDIT]
+수정 전 다음을 추적한다:
+- OnDrag / IDragHandler / PointerEventData.delta
+- Input.mouseScrollDelta
+- Wheel 시각 회전 코드
+- X/Z 실제 이동 코드
+- MoveAxis/MoveX/MoveZ
+- feed/sensitivity/speed/multiplier
+- Update/FixedUpdate/Time.deltaTime
+- ×1/×10/×100 적용 위치
+- 한 입력 이벤트가 여러 경로에서 중복 적용되는지
+- 배율이 두 번 적용되는지
+- Mouse Wheel과 Direct Drag가 별도 mm 계산을 하는지
+
+360°가 약 60mm 이상 되는 정확한 ROOT CAUSE를 먼저 특정한다. 현재 값에 임의로 1/15 등을 곱하는 보정은 금지한다.
+
+[DIRECT DRAG]
+커서 이동 픽셀을 직접 mm로 바꾸지 않는다.
+Wheel 중심 기준 Pointer 각도를 계산한다.
+
+previousAngle
+currentAngle
+deltaAngle = 안전한 각도 차
+
+그 deltaAngle만 mm 환산에 사용한다.
+
+359°→1°는 +2°,
+1°→359°는 -2°가 되어야 한다.
+±358°로 튀면 FAIL이다.
+
+[MULTI TURN]
+Euler 값이 0~360°로 반복되어도 매 이벤트의 deltaAngle을 누적 처리한다.
+360°=4mm, 720°=8mm, 1800°=20mm.
+한 바퀴마다 이송 누적값을 초기화하지 않는다.
+
+[MOUSE WHEEL]
+Mouse Wheel delta는 먼저 rotationDeltaDegrees로 변환한다.
+그 뒤 Direct Drag와 동일한 rotation→movement 경로를 사용한다.
+Mouse Wheel 전용 mm 계산식 금지.
+
+[중복 이송 제거]
+예를 들어 OnDrag에서 MoveAxis()를 호출하고 Update()에서도 같은 입력 상태로 MoveAxis()를 호출하는 구조가 있다면 통합한다.
+입력이 멈춘 뒤에는 단 1프레임이라도 추가 이송이 발생하면 안 된다.
+
+[UI 유지]
+REV3 규칙 유지:
+- Wheel 숫자 0/1/2/3
+- 12시=0, 3시=1, 6시=2, 9시=3
+- Fixed_Pointer는 Wheel 외곽 12시의 짧은 검은 기준선
+- Wheel_Disc만 회전, Pointer는 고정
+- 이미지 원본 해상도가 아니라 실제 RectTransform/Layout 표시 크기를 충분히 크게 유지
+- X/Z Wheel 모두 가독성 확보
+
+[구현 순서]
+1. 입력부터 최종 Axis Position까지 전체 호출 경로 AUDIT.
+2. 360°가 약 60mm 이상 되는 ROOT CAUSE 특정.
+3. Drag/Speed/Frame 기반 직접 이송 및 중복 경로 제거.
+4. deltaAngle을 Single Source of Truth로 지정.
+5. movementMm=(deltaAngle/90.0)×currentScale 중앙화.
+6. Mouse Wheel과 Direct Drag를 동일 경로로 통합.
+7. 359°↔0° wraparound 처리.
+8. 720° 이상 multi-turn 검증.
+9. REV3 UI 및 기존 선반 기능 회귀 테스트.
+
+[필수 TEST]
+01 ×1 +90°  → +1.000mm
+02 ×1 +180° → +2.000mm
+03 ×1 +360° → +4.000mm
+04 ×1 +720° → +8.000mm
+05 ×1 -90°  → -1.000mm
+06 ×1 -360° → -4.000mm
+07 359°→1° → delta +2°, 이동 +0.022222...mm
+08 1°→359° → delta -2°, 이동 -0.022222...mm
+09 ×10 +90° → +10.000mm
+10 ×100 +90° → +100.000mm
+11 Direct Drag 실제 한 바퀴 → ×1에서 +4.000mm
+12 Mouse Wheel 누적 한 바퀴 → ×1에서 +4.000mm
+13 동일 +90°를 Drag/Mouse Wheel 각각 수행 → 둘 다 +1.000mm
+14 Wheel 회전 없음 → 이동 0mm
+15 입력 종료 후 여러 프레임 대기 → 추가 이동 0mm
+
+[PASS]
+- 360°=4mm, 720°=8mm 정확히 성립
+- 역방향도 동일 비율
+- wraparound에서 값이 튀지 않음
+- Mouse Wheel/Direct Drag 결과 일치
+- deltaAngle이 실제 이송의 유일한 기준
+- 배율 정확히 1회 적용
+- 중복 Axis Command 없음
+- 입력 종료 후 추가 이동 없음
+- REV3 Wheel UI/Pointer/크기 규칙 유지
+- 기존 정상 선반 기능 유지
+
+[FAIL]
+- 360°가 4mm가 아님
+- 60mm 현상을 임의 보정계수로만 숨김
+- dragPixels/mouseSpeed/frame가 직접 mm 결정
+- Time.deltaTime 때문에 추가 이송
+- 동일 입력 중복 MoveAxis
+- 배율 중복 적용
+- Mouse Wheel/Drag가 별도 mm 계산
+- 359°↔0°에서 큰 이송 발생
+- 360°마다 누적 초기화
+- 시각 회전과 실제 이송 불일치
+
+[구현 후 보고]
+PATCH_002 REV4 RESULT
+1. ROOT CAUSE: 정확한 원인 + 파일/메서드
+2. 제거한 우회/중복 경로
+3. deltaAngle 계산 위치
+4. mm 변환 위치
+5. 배율 적용 위치
+6. 최종 Axis Command 위치
+7. TEST 01~15 실제 측정값과 PASS/FAIL
+8. 수정 파일 목록
+9. 회귀 테스트 결과
+10. 남은 문제(없으면 없음)
+
+[완료 정의]
+실제 Wheel 회전각이 Axis 이동량의 단일 Source of Truth여야 한다.
+×1에서 Wheel을 정확히 360° 회전했을 때 최종 Axis Position 변화량이 정확히 4.000mm임을 실제 검증해야 한다.
+
+PATCH_002 REVISION 4 END

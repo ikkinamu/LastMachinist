@@ -1,0 +1,568 @@
+LAST MACHINIST — VERTICAL SLICE PHASE 04
+
+INVENTORY WORKPIECE → MACHINING INTEGRATION v0.1
+
+CODEX DEVELOPMENT SPEC
+
+------------------------------------------------------------------------
+
+0. 목표
+
+Phase 03에서 구현한 WorkpieceInstance + Player Inventory를 기존 가공
+시스템과 연결한다.
+
+이번 Phase의 핵심 루프:
+
+탐색 → 공작물 회수 → 인벤토리 저장 → 작업장 복귀 → 가공 방식 선택 → 보유 공작물 선택 → 실제 가공 화면에 해당 공작물 로드
+
+이 단계부터 탐색 시스템과 기존 선반 가공 시스템이 하나의 게임 루프로
+연결되어야 한다.
+
+이번 Phase에서는 공작물의 녹/결함/재료 특성이 실제 절삭 결과에 영향을
+주는 계산까지 구현하지 않는다. 우선 어떤 WorkpieceInstance를 선택했는지
+유지하고, 실제 가공 대상으로 정확하게 전달하는 것이 목표다.
+
+------------------------------------------------------------------------
+
+1. BASELINE
+
+기준:
+
+-   MVP: Last_Machinist_MVP_Development_Spec_v0.10_REVIEWED.txt
+-   PATCH_001~003의 현재 구현 동작
+-   VERTICAL SLICE PHASE 01 — EXPLORATION FOUNDATION
+-   VERTICAL SLICE PHASE 02 — ITEM INSPECTION & RECOVERY
+-   VERTICAL SLICE PHASE 03 — WORKPIECE INSTANCE & INVENTORY
+
+특히 기존 PATCH_003에서 확정된 흐름:
+
+가공 방식 선택 → 재료 선택 → 가공 진행
+
+을 유지한다.
+
+단, 이번 Phase부터 선반 가공의 재료 선택은 가능하면 단순 테스트 재료
+생성이 아니라 Player Inventory에 실제 존재하는 WorkpieceInstance
+선택으로 연결한다.
+
+기존 가공/측정/다이얼/카메라/퀘스트 시스템을 재작성하지 않는다.
+
+------------------------------------------------------------------------
+
+2. PHASE 04 완료 루프
+
+1.  탐색에서 공작물 회수
+2.  Player Inventory에 WorkpieceInstance 저장
+3.  작업장 복귀
+4.  가공 방식 선택
+5.  선반 가공 선택
+6.  공작물 선택 화면 표시
+7.  Player Inventory의 보유 공작물 목록 표시
+8.  공작물 하나 선택
+9.  선택한 Instance 상세 상태 확인
+10. [가공 시작]
+11. 선택 Instance를 ActiveMachiningWorkpiece로 전달
+12. 선반 Scene/가공 화면 진입
+13. 선택한 공작물의 기본 형상/치수로 소재 표시
+14. 기존 선반 시스템으로 가공 가능
+15. 가공 종료/취소 시 해당 Instance의 상태를 일관되게 처리
+
+------------------------------------------------------------------------
+
+3. 기존 ‘재료 선택’ 화면의 의미 변경
+
+기존 흐름의 위치는 유지한다.
+
+가공 방식 선택 → 재료 선택 → 가공 진행
+
+하지만 UI의 실제 선택 대상은 이제 단순 MaterialDefinition이 아니라 보유
+중인 WorkpieceInstance다.
+
+Player-Facing 명칭은 현재 UI 구조를 AUDIT한 뒤 다음 중 자연스러운 표현을
+사용한다.
+
+권장: - 공작물 선택 또는 - 기존 상위 화면명이 재료 선택이라면 내부
+목록에서 실제 보유 공작물을 선택
+
+이번 Phase에서 전체 UI 흐름을 불필요하게 재설계하지 않는다.
+
+------------------------------------------------------------------------
+
+4. 공작물 선택 목록
+
+선반 가공을 선택하면 Player Inventory에서 가공 대상으로 사용할 수 있는
+WorkpieceInstance를 조회한다.
+
+목록 최소 표시:
+
+-   공작물 이름
+-   기본 형상/규격
+-   종합 상태 점수
+-   재료 식별 상태
+
+예:
+
+원형 봉재 Ø50 × 300 | 상태 83 | 재료 미식별
+
+같은 Definition의 공작물이 여러 개 있어도 각각 별도 항목으로 표시한다.
+
+InstanceId 자체를 플레이어에게 그대로 보여줄 필요는 없다.
+
+------------------------------------------------------------------------
+
+5. 선택 상세 정보
+
+공작물을 선택하면 상세 영역에 Phase 03 데이터를 표시한다.
+
+최소:
+
+[기본 정보] - 이름 - 형상 - 기본/현재 치수
+
+[재료] - 식별 상태 - Unknown이면 재료 정답 숨김
+
+[공작물 상태] - 부식 상태 - 표면 상태 - 형상 건전성 - 결함 건전성 - 종합
+상태 점수
+
+이번 Phase에서는 이 점수들이 절삭력, 공구 마모, 표면거칠기 등에 실제
+영향을 주지 않는다.
+
+데이터를 전달하고 유지하는 것까지만 구현한다.
+
+------------------------------------------------------------------------
+
+6. 가공 가능 공작물 필터
+
+선반에서 사용할 수 없는 형상의 공작물까지 무조건 표시하지 않는다.
+
+최소한 WorkpieceDefinition의 ShapeType 또는 MachiningCompatibility를
+이용해 선반 가공 후보를 필터링할 수 있는 구조를 둔다.
+
+Phase 04의 최소 지원 대상:
+
+원형 봉재 / 선반에서 사용할 수 있는 회전체 소재
+
+판재 등 명백히 현재 선반 시스템에 맞지 않는 공작물은 선택 불가 또는
+목록에서 제외할 수 있다.
+
+그러나 향후 밀링 시스템에서 재사용 가능하도록 선반용 아이템이라는 임시
+이름만으로 하드코딩하지 않는다.
+
+------------------------------------------------------------------------
+
+7. ActiveMachiningWorkpiece
+
+가공 시작 시 선택한 WorkpieceInstance를 현재 가공 세션의 명확한 Active
+Workpiece로 지정한다.
+
+개념 예:
+
+ActiveMachiningWorkpiece - InstanceId - WorkpieceDefinition reference -
+Material reference - ConditionProperties - IdentificationState -
+CurrentGeometry / MachiningGeometry reference
+
+정확한 클래스명은 기존 프로젝트 구조를 AUDIT한 후 결정한다.
+
+중요:
+
+Inventory의 원본 Instance와 가공 화면의 실제 소재가 서로 관계없는 별도
+테스트 오브젝트가 되면 안 된다.
+
+선택한 InstanceId를 가공 세션 전체에서 추적할 수 있어야 한다.
+
+------------------------------------------------------------------------
+
+8. 초기 가공 형상 생성
+
+가공 화면 진입 시 선택한 WorkpieceInstance의 WorkpieceDefinition / 현재
+Geometry 데이터를 이용해 초기 소재를 만든다.
+
+최소:
+
+-   ShapeType
+-   Diameter
+-   Length
+
+등 현재 선반 시스템이 실제로 필요로 하는 형상 정보를 전달한다.
+
+예:
+
+Inventory: 원형 봉재 Ø50 × 300
+
+가공 화면: 실제 초기 소재도 해당 규격을 기준으로 생성
+
+Inventory에서 Ø50을 선택했는데 가공 화면에서 기존 하드코딩 소재가
+나타나면 FAIL이다.
+
+기존 TurningProfile/Stock Geometry 구조가 있다면 그것을 우선 재사용한다.
+
+------------------------------------------------------------------------
+
+9. 공작물 상태와 시각 표현
+
+Phase 03의 상태값:
+
+-   CorrosionCondition
+-   SurfaceCondition
+-   ShapeIntegrity
+-   DefectIntegrity
+
+은 ActiveMachiningWorkpiece에 그대로 전달한다.
+
+하지만 이번 Phase에서는 상태값을 기반으로 복잡한 녹 Mesh, 균열 Mesh, 휨
+Geometry를 자동 생성할 필요가 없다.
+
+가능하다면 디버그/상세 UI에서 현재 값이 전달되었음을 확인한다.
+
+시각적 녹/결함 표현은 별도 Phase로 확장 가능하다.
+
+------------------------------------------------------------------------
+
+10. Inventory 소유 상태
+
+가공 시작 버튼을 누르는 순간 공작물을 즉시 삭제하지 않는다.
+
+최소 상태 개념을 둔다.
+
+예:
+
+-   Available
+-   InMachining
+-   Consumed/Completed (future)
+
+가공 대상으로 선택되어 세션이 시작되면 해당 Instance는 InMachining
+상태로 취급할 수 있다.
+
+가공 중 동일 Instance를 다른 곳에서 동시에 선택할 수 없어야 한다.
+
+정확한 상태 enum은 기존 Inventory 구조에 맞춰 결정한다.
+
+------------------------------------------------------------------------
+
+11. 취소 / 가공 진입 실패
+
+가공 Scene 로드 실패 또는 정상적인 가공 시작 전 취소가 발생하면 공작물이
+사라지면 안 된다.
+
+흐름:
+
+선택 → 가공 시작 요청 → Active Workpiece 설정 → 가공 Scene/Session 정상
+생성 확인 → InMachining 상태 확정
+
+실패: → Active 상태 정리 → Inventory에서 다시 Available → Instance
+데이터 유지
+
+가공 시작 실패 때문에 공작물이 증발하면 FAIL이다.
+
+------------------------------------------------------------------------
+
+12. 가공 후 데이터 유지 기반
+
+이번 Phase에서는 완성된 공작물의 최종 품질 계산까지 구현하지 않는다.
+
+그러나 기존 선반 시스템에서 TurningProfile/Geometry가 변경되므로, 향후
+가공 완료 시 같은 WorkpieceInstance에 현재 가공 형상을 저장할 수 있는
+연결 지점을 마련한다.
+
+중요:
+
+Phase 04에서는 가공 완료 → 새 아이템 제작 시스템 을 완성할 필요가 없다.
+
+목표는 선택한 Instance와 실제 가공 중인 소재의 연결이 끊기지 않는
+것이다.
+
+------------------------------------------------------------------------
+
+13. 측정 시스템 연결
+
+기존 측정 원칙을 유지한다.
+
+-   TrueDimension
+-   InstrumentReading
+-   RecordedMeasurement
+
+은 계속 분리한다.
+
+Inventory WorkpieceInstance를 로드했다고 해서 UI에 실제 정답 치수를 자동
+공개하지 않는다.
+
+가공 화면의 실제 Geometry/TrueDimension은 기존 측정 시스템을 통해서만
+적절하게 측정된다.
+
+Inventory 상세의 규격과 가공 중 실제 측정 정답 시스템을 무분별하게
+합치지 않는다.
+
+------------------------------------------------------------------------
+
+14. Material Identification 원칙
+
+WorkpieceInstance가 Unknown 재료라면 가공 화면으로 가져가도 재료 정답을
+자동 공개하지 않는다.
+
+내부 MaterialDefinition은 가공 시스템이 향후 물성 계산에 사용할 수
+있지만, Player-Facing UI는 IdentificationState를 존중한다.
+
+이번 Phase에서 재료 시험/식별 시스템은 구현하지 않는다.
+
+향후 별도 시스템에서 다음과 같은 기능을 확장할 예정이므로 구조를 막지
+않는다.
+
+-   경도 시험
+-   인장 시험
+-   기타 파괴 시험
+-   자분탐상
+-   침투탐상
+-   기타 비파괴검사
+
+이번 Phase에서는 해당 기능을 구현하지 않는다.
+
+------------------------------------------------------------------------
+
+15. 기존 QUEST 01 / 테스트 소재 호환
+
+기존 MVP QUEST 01이 특정 초기 소재 또는 튜토리얼용 테스트 Stock에
+의존한다면 Phase 04 구현 때문에 QUEST 01이 즉시 플레이 불가능해지면 안
+된다.
+
+먼저 기존 흐름을 AUDIT한다.
+
+필요하면:
+
+-   기존 Tutorial/Debug Stock 경로 유지
+-   Inventory Workpiece 경로 추가
+
+처럼 호환 계층을 둘 수 있다.
+
+단, 새 일반 탐색→가공 루프에서는 Player Inventory의 WorkpieceInstance를
+사용하는 것이 기본 목표다.
+
+기존 하드코딩 소재를 새 시스템의 기본값으로 계속 사용하는 것은 FAIL이다.
+
+------------------------------------------------------------------------
+
+16. Save / Load
+
+기존 Save/Load 시스템에 다음 상태가 필요하면 통합한다.
+
+-   WorkpieceInstance Inventory 상태
+-   Available / InMachining 상태
+-   ActiveMachiningWorkpiece 식별 정보
+-   필요 시 현재 Geometry 저장 연결점
+
+세이브 시점에 가공 중 저장을 현재 게임이 지원하지 않는다면 이번
+Phase에서 억지로 전체 가공 중 Save 시스템을 만들지 않는다.
+
+현재 지원 범위 내에서 데이터 유실/복제만 방지한다.
+
+------------------------------------------------------------------------
+
+17. UI EMPTY STATE
+
+선반에 사용할 수 있는 공작물이 Inventory에 하나도 없다면 빈 목록에서
+NullReference가 발생하면 안 된다.
+
+Player-Facing 예:
+
+사용 가능한 공작물이 없습니다.
+
+이 상태에서 [가공 시작]은 비활성화한다.
+
+테스트용 공작물을 몰래 자동 생성해서 진행시키지 않는다.
+
+------------------------------------------------------------------------
+
+18. OUT OF SCOPE
+
+이번 Phase에서 구현하지 않는다.
+
+-   상태값에 따른 절삭력 변화
+-   상태값에 따른 공구 마모 변화
+-   녹 제거 가공 계산
+-   균열 전파
+-   휨에 따른 실제 회전 편심
+-   실제 재료 물성 시뮬레이션
+-   재료 식별 시험
+-   파괴 시험
+-   비파괴검사
+-   완성품 품질 판정 재설계
+-   판매/가격
+-   창고
+-   무게 제한
+-   제작 시스템 전체
+-   밀링 Inventory 연결
+-   QUEST 02 본편
+-   고품질 녹/결함 시각 효과
+
+------------------------------------------------------------------------
+
+19. CODEX 구현 순서
+
+STEP 1 — AUDIT - 기존 가공 방식 선택 - 기존 재료 선택 - Lathe Stock
+생성 - TurningProfile/Geometry - Player Inventory - WorkpieceInstance -
+Save/Load - QUEST 01 Tutorial Stock 의존성
+
+STEP 2 — MACHINING COMPATIBILITY 선반에서 사용 가능한
+WorkpieceDefinition 필터 구조 추가.
+
+STEP 3 — WORKPIECE SELECTION UI Player Inventory 기반 공작물 목록/상세
+구현.
+
+STEP 4 — ACTIVE WORKPIECE 선택 Instance를 가공 세션에 전달하는 단일
+상태/Context 구현.
+
+STEP 5 — STOCK INITIALIZATION 선택 Instance의 형상/치수로 기존 Lathe
+Stock 초기화.
+
+STEP 6 — CONDITION TRANSFER ConditionProperties 및 IdentificationState
+전달.
+
+STEP 7 — INVENTORY STATE Available → InMachining 상태 처리 및 중복 사용
+방지.
+
+STEP 8 — CANCEL / FAILURE 취소/Scene 진입 실패 시 Inventory 원상복구.
+
+STEP 9 — QUEST 01 REGRESSION 기존 튜토리얼/QUEST 01이 깨지지 않는지
+확인.
+
+STEP 10 — SAVE/LOAD AUDIT 현재 지원 범위 내 데이터 유실/복제 방지.
+
+STEP 11 — FULL LOOP TEST 탐색 → 회수 → Inventory → 공작물 선택 → 선반
+로드 → 가공.
+
+------------------------------------------------------------------------
+
+20. 필수 테스트
+
+TEST 01 Player Inventory에 서로 다른 WorkpieceInstance A/B 존재.
+
+EXPECTED: 공작물 선택 화면에 A/B 각각 별도 표시.
+
+TEST 02 같은 Definition의 A/B 선택 전환.
+
+EXPECTED: 각 Instance의 서로 다른 상태값 표시.
+
+TEST 03 선반 비호환 ShapeType 존재.
+
+EXPECTED: 선택 불가 또는 선반 후보에서 제외.
+
+TEST 04 A 선택 후 [가공 시작].
+
+EXPECTED: ActiveMachiningWorkpiece = A.
+
+TEST 05 가공 화면 진입.
+
+EXPECTED: A의 WorkpieceDefinition/Geometry를 기준으로 Stock 생성.
+
+TEST 06 A = Ø50인데 기존 테스트 Stock 규격이 다름.
+
+EXPECTED: 기존 하드코딩 Stock이 아니라 A 규격 사용.
+
+TEST 07 A의 ConditionProperties 확인.
+
+EXPECTED: 가공 세션에서도 동일 값 유지.
+
+TEST 08 A Material IdentificationState = Unknown.
+
+EXPECTED: 가공 화면에서도 실제 재료 정답 자동 공개 없음.
+
+TEST 09 A 가공 중 Inventory 상태.
+
+EXPECTED: A를 동시에 다시 선택할 수 없음.
+
+TEST 10 가공 시작 전 정상 취소.
+
+EXPECTED: A는 Inventory에 Available 상태로 유지.
+
+TEST 11 가공 Scene/Session 초기화 실패를 안전하게 시뮬레이션 가능한
+경우.
+
+EXPECTED: A 소실/복제 없음.
+
+TEST 12 사용 가능한 공작물 0개.
+
+EXPECTED: 빈 상태 메시지 표시, 가공 시작 불가, Console Error 없음.
+
+TEST 13 Phase 01~03 탐색 루프.
+
+EXPECTED: 지도/이동/조사/회수/Inventory 정상.
+
+TEST 14 기존 QUEST 01.
+
+EXPECTED: 기존 튜토리얼 흐름이 의도치 않게 파괴되지 않음.
+
+TEST 15 기존 선반 기능.
+
+EXPECTED: Handwheel, Zero Set, Chamfer, Measurement, Orthographic 4 View
+등 기존 기능 정상.
+
+TEST 16 Console.
+
+EXPECTED: Error 0.
+
+------------------------------------------------------------------------
+
+21. PASS 조건
+
+-   Player Inventory의 실제 WorkpieceInstance를 가공 대상으로 선택 가능
+-   같은 종류의 공작물도 개별 Instance로 선택 가능
+-   선반 호환 공작물 필터 가능
+-   선택 InstanceId가 가공 세션까지 유지
+-   선택 공작물의 형상/치수가 실제 Stock 초기화에 반영
+-   ConditionProperties 전달 유지
+-   Unknown Material 정답 숨김 유지
+-   가공 중 동일 Instance 중복 사용 방지
+-   취소/실패 시 공작물 소실 없음
+-   공작물 0개 상태 안전 처리
+-   기존 QUEST 01 호환
+-   기존 가공/측정/탐색 시스템 회귀 없음
+-   Console Error 없음
+
+------------------------------------------------------------------------
+
+22. FAIL 조건
+
+-   Inventory 선택과 무관하게 기존 테스트 Stock이 생성됨
+-   같은 Definition의 공작물을 Stack으로 합쳐 Instance 구분 소실
+-   선택한 InstanceId가 Scene 전환 중 사라짐
+-   Inventory Ø50 선택 후 다른 규격 Stock 생성
+-   가공 시작 순간 Inventory에서 공작물을 영구 삭제
+-   취소/실패 시 공작물 증발
+-   동일 Instance 동시 중복 사용
+-   Unknown Material의 정답 노출
+-   상태 점수가 가공 진입 시 초기화
+-   사용 가능 공작물 0개에서 NullReference
+-   기존 QUEST 01/측정/Handwheel/Chamfer 기능 손상
+-   Phase 범위를 넘어 재료시험/절삭 물성 계산 등을 임의 구현
+
+------------------------------------------------------------------------
+
+23. CODEX 구현 후 보고 형식
+
+[VERTICAL SLICE PHASE 04 RESULT]
+
+1.  기존 Machining/Stock/Inventory AUDIT
+2.  Workpiece Machining Compatibility 구조
+3.  공작물 선택 UI
+4.  ActiveMachiningWorkpiece 전달 구조
+5.  Lathe Stock 초기화 연결
+6.  Condition / Identification 데이터 전달
+7.  Inventory Available/InMachining 처리
+8.  취소/실패 복구 처리
+9.  QUEST 01 호환 처리
+10. Save/Load 영향
+11. TEST 01~16 PASS/FAIL
+12. 수정 파일 목록 및 변경 요약
+13. Phase 01~04 + MVP/PATCH 회귀 테스트
+14. 남은 문제
+
+------------------------------------------------------------------------
+
+24. 완료 정의
+
+플레이어가 탐색에서 회수한 개별 WorkpieceInstance를 작업장 인벤토리에서
+보유하고, 선반 가공을 선택한 뒤 해당 공작물을 실제 가공 대상으로 선택할
+수 있어야 한다.
+
+선택한 Instance의 형상/치수/상태/식별 상태가 가공 세션까지 유지되고,
+선반 화면의 실제 초기 Stock이 해당 공작물 데이터로 생성되어야 한다.
+
+취소/실패 시 공작물이 소실되지 않고, 기존 선반/측정/QUEST 기능이 정상
+유지되면 Phase 04 완료다.

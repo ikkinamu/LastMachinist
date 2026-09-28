@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ac1849b61a34712b22a3c2ac1347b53, type: 3}
+  m_Name: EnvironmentArt
+  m_EditorClassIdentifier:
+  workshop: {fileID: 2800000, guid: ac12f2e7304945d994a181d14c65b8d4, type: 3}
+  farm: {fileID: 2800000, guid: 36e307e6e6f349328c004cae5809becb, type: 3}
+  handwheel: {fileID: 2800000, guid: 0c5104a7b3aa4ad490ec0017cb873632, type: 3}
+  handwheelBase: {fileID: 0}
+  handwheelPointer: {fileID: 2800000, guid: 85bbce052f414a4c89504fefbca906c7, type: 3}
+  handwheelPivot: {x: 0.491, y: 0.502}
+  pumpBroken: {fileID: 2800000, guid: 79028acf5d9143e591cfb9815da72001, type: 3}
+  pumpRepaired: {fileID: 2800000, guid: 79028acf5d9143e591cfb9815da72002, type: 3}

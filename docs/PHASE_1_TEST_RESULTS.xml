@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="6" result="Passed" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.0444492">
+  <test-suite type="TestSuite" id="1000" name="Phase1TestProject" fullname="Phase1TestProject" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.044449" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1008" name="LastMachinist.Tests.Editor.dll" fullname="C:/Users/suinj/LastMachinist/work/Phase1Validation/Library/ScriptAssemblies/LastMachinist.Tests.Editor.dll" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.036444" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="24680" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1009" name="LastMachinist" fullname="LastMachinist" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.036062" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1010" name="Tests" fullname="LastMachinist.Tests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.035919" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="CoreDataTests" fullname="LastMachinist.Tests.CoreDataTests" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.035025" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1006" name="InvalidProfilesAndSaveDataAreRejected" fullname="LastMachinist.Tests.CoreDataTests.InvalidProfilesAndSaveDataAreRejected" methodname="InvalidProfilesAndSaveDataAreRejected" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="1507426910" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.011838" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1003" name="InventoryAddsAndRemovesAtomically" fullname="LastMachinist.Tests.CoreDataTests.InventoryAddsAndRemovesAtomically" methodname="InventoryAddsAndRemovesAtomically" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="400862867" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.005314" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1005" name="JsonRoundTripPreservesRequiredState" fullname="LastMachinist.Tests.CoreDataTests.JsonRoundTripPreservesRequiredState" methodname="JsonRoundTripPreservesRequiredState" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="1128385034" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.002811" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1007" name="SaveGraphContainsNoUnityObjectReferences" fullname="LastMachinist.Tests.CoreDataTests.SaveGraphContainsNoUnityObjectReferences" methodname="SaveGraphContainsNoUnityObjectReferences" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="903299868" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.000445" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1004" name="UniqueItemsKeepIndependentIdentity" fullname="LastMachinist.Tests.CoreDataTests.UniqueItemsKeepIndependentIdentity" methodname="UniqueItemsKeepIndependentIdentity" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="471037698" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.000340" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1002" name="WorkpieceRepresentsSteppedProfile" fullname="LastMachinist.Tests.CoreDataTests.WorkpieceRepresentsSteppedProfile" methodname="WorkpieceRepresentsSteppedProfile" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="1366625333" result="Passed" start-time="2026-09-11 17:39:40Z" end-time="2026-09-11 17:39:40Z" duration="0.000221" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[Saving results to: C:\Users\suinj\LastMachinist\work\phase1-results.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

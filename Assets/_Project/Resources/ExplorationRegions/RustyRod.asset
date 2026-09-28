@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7abd305801444880875a31a270f02ccd, type: 3}
+  m_Name: RustyRod
+  m_EditorClassIdentifier:
+  ItemId: test_yard_rod_01
+  DisplayName: 녹슨 금속 봉
+  InspectionProperties:
+  - PropertyLabel: 표면
+    PropertyValue: 부식 흔적 있음
+  - PropertyLabel: 마킹
+    PropertyValue: 일부 확인 가능
+  - PropertyLabel: 크기
+    PropertyValue: 육안상 중형
+  CanRecover: 1
+  RecoveryId: recovered_rod
+  Workpiece: {fileID: 11400000, guid: 7cf6d217f4e54022a1e7cba3607fdbe7, type: 2}
+  ActualMaterialType: structural_carbon_steel
+  ActualDimensions: {x: 0.2, y: 1.4, z: 0.2}

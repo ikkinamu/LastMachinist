@@ -1,0 +1,701 @@
+LAST MACHINIST — VERTICAL SLICE PHASE 06
+
+TAILSTOCK / DRILLING / INTERNAL MACHINING / UI ACCESSIBILITY v0.1
+
+0.  목표
+
+외경 가공 중심인 현재 선반을 다음 단계로 확장한다.
+
+구현 범위: 1. 심압대(Tailstock) 2. 센터드릴 3. 드릴 4. 내경 바이트 및
+내경 가공 5. 가공 UI 접근성 개선
+
+핵심 흐름: 공작물 장착 → 심압대 공구 선택 → 센터드릴 → 드릴 → Hole 생성
+→ 내경 바이트 → 내경 확대/정삭
+
+기존 외경 가공, Handwheel, Zero Set, 45° 모따기, 측정, Inventory, Quest
+시스템은 유지한다.
+
+1.  BASELINE
+
+참조: - MVP v0.10 REVIEWED - PATCH_001~003 - Vertical Slice Phase 01~05
+
+유지 원칙: - Player-Facing UI 한국어 - TrueDimension / InstrumentReading
+/ RecordedMeasurement 분리 - 정답 치수 자동 공개 금지 - Orthographic 4
+View 유지 - Phase 04 WorkpieceInstance → Machining 연결 유지 - Phase 05
+반복 Quest는 이번 Phase 때문에 강제 변경하지 않음 - 기존 시스템을 중복
+구현하지 말고 먼저 AUDIT
+
+2.  Inner Geometry Foundation
+
+현재 TurningProfile/Stock Geometry를 AUDIT한다.
+
+외경과 내경을 독립적으로 유지할 수 있는 구조를 추가한다.
+
+권장 개념: - OuterProfile - InnerProfile / HoleProfile - Feature data
+
+최소 Hole 데이터: - Diameter - Depth - Position - OperationHistory
+
+외경 가공 시 InnerProfile이 사라지면 안 된다. 내경 가공 시
+OuterProfile이 초기화되면 안 된다.
+
+두 형상이 비정상적으로 교차하는 경우 NaN, 뒤집힌 Mesh, 무한 Geometry가
+발생하지 않도록 Validation한다.
+
+3.  심압대
+
+Tailstock은 장식 Mesh가 아니라 실제 가공 시스템과 연결한다.
+
+최소 구조: - Tailstock Body - Quill - ToolHolder - MountedTool -
+AxialPosition - QuillExtension
+
+초기 장착 공구: - 센터드릴 - 드릴
+
+향후 Reamer/Center 등을 추가할 수 있는 구조는 허용하지만 이번
+Phase에서는 구현하지 않는다.
+
+심압대 공구 Visual과 실제 ToolType이 반드시 일치해야 한다.
+
+4.  센터드릴
+
+센터드릴은 공작물 회전축 중심에 Hole 가공의 시작 Feature를 만든다.
+
+필수: - CenterDrill 장착 - 공작물 중심축 정렬 - 기존 Spindle/Cutting
+State와 연결 - 실제 접촉/이송 시 Geometry 변경
+
+센터드릴 사용 후: - Hole/Center Feature 데이터 변경 - Visual Mesh 변경 -
+이후 Drill이 해당 위치를 사용할 수 있음
+
+Visual만 바뀌고 실제 Geometry가 그대로면 FAIL.
+
+5.  드릴
+
+Drill은 고정 Preset 방식으로 시작한다.
+
+최소 DrillDefinition: - ToolId - DisplayName - Diameter - ToolType -
+Visual
+
+드릴 가공 결과: - Hole Diameter - Hole Depth - Hole Position
+
+공작물 범위를 넘어 비정상적인 깊이로 가공되지 않도록 Clamp한다.
+
+센터드릴과 Drill은 별도 Operation으로 기록한다. 센터드릴 버튼 하나로
+전체 Hole이 자동 생성되면 안 된다.
+
+6.  내경 가공
+
+새 Tool Type: BoringTool
+
+Player-Facing: 내경 바이트
+
+핵심 규칙: Hole이 없는 Solid Workpiece 내부를 내경 바이트가 그대로
+절삭할 수 없다.
+
+정상 흐름: 센터드릴/드릴 → Hole 생성 → 내경 바이트 진입 → 내경 확대/정삭
+
+내경 가공 판정 최소 조건: - 기존 Hole 존재 - 공구가 Hole에 진입 가능한
+상태 - 실제 Tool 위치 - Spindle/Cutting State - 실제 절삭 접촉
+
+초기 지원: - 단순 원통 내경 - 내경 깊이 - 필요 시 단순 내부 단차
+
+이번 Phase 제외: - 내부 홈 - 테이퍼 내경 - 내부 나사
+
+7.  내경 측정 기반
+
+기존 측정 구조를 재사용한다.
+
+InnerProfile에서 TrueDimension을 조회할 수 있는 API/연결점을 만든다.
+
+내경 TrueDimension을 Player UI에 자동 공개하지 않는다.
+
+기존 측정기가 아직 내경 측정을 지원하지 않는다면 전체 측정기 시스템을
+억지로 새로 만들지 말고, Phase 06에서는 InnerProfile TrueDimension
+Query와 향후 측정 도구 연결 기반까지 구현한다.
+
+8.  가공 UI 접근성 개선
+
+기능 추가로 가공 UI가 복잡해지지 않도록 재정리한다.
+
+목표: - 현재 공구를 즉시 확인 - 외경/내경/심압대 접근 단계 감소 - 버튼
+위치/크기 일관화 - Handwheel 조작 영역 유지 - 불필요한 Modal Popup
+감소 - 16:9 / 16:10 / 21:9 대응
+
+권장 공구 분류: [외경 공구] [내경 공구] [심압대]
+
+외경: - 기존 황삭/정삭 - 모따기 등 현재 구현 공구
+
+내경: - 내경 바이트
+
+심압대: - 센터드릴 - 드릴
+
+정확한 UI 구조는 현재 Hierarchy를 AUDIT한 뒤 기존 UI를 최대한
+재사용한다.
+
+9.  현재 공구 표시
+
+가공 화면에서 현재 상태를 항상 확인 가능하게 한다.
+
+예: - 현재 공구: 외경 정삭 바이트 - 현재 공구: 내경 바이트 - 심압대: Ø10
+드릴
+
+표시: - 현재 공구 계열 - 현재 장착 공구 - 필요한 경우 Drill 직경 -
+심압대 활성 상태
+
+내부 Enum/Debug ID를 그대로 노출하지 않는다.
+
+10. Context UI
+
+선택한 가공 계열에 맞는 조작을 강조한다.
+
+외경/내경: - X/Z Handwheel 중심
+
+심압대: - Tailstock/Quill 관련 조작 강조
+
+단, Context가 바뀔 때 주요 버튼 위치가 크게 이동하지 않도록 한다. Muscle
+Memory를 깨는 UI 재배치 금지.
+
+11. 버튼 접근성
+
+최소: - 주요 Hit Area 확대 - 텍스트 잘림 없음 - Selected/Disabled 상태
+명확 - 버튼 간 충분한 간격 - UI Scale 변화 시 겹침 없음 - 아이콘만으로
+기능을 추측하게 하지 않음 - 필요 시 아이콘 + 한국어 Label
+
+12. 상태 피드백
+
+불가능한 조작을 아무 반응 없이 무시하지 않는다.
+
+예: - 먼저 심압대 공구를 장착하세요. - 내경 바이트가 진입할 구멍이
+없습니다. - 현재 공구로는 이 영역을 가공할 수 없습니다.
+
+화면을 가리는 Modal보다 기존 Status/Toast 영역을 우선한다.
+
+13. 레이아웃 원칙
+
+기존 PATCH_003 원칙 유지.
+
+권장 역할: - 상단: 현재 가공 상태 / 현재 공구 / 카메라 - 측면: 공구 계열
+/ 공구 선택 - 기존 하단 영역: Handwheel / Zero Set / Tailstock 관련 조작
+
+현재 잘 동작하는 UI를 이유 없이 전면 재배치하지 않는다.
+
+14. Save / Load
+
+현재 WorkpieceInstance Geometry 저장 구조가 있다면: - OuterProfile -
+InnerProfile/HoleProfile - Hole Diameter - Hole Depth
+
+를 저장 가능하게 확장한다.
+
+Load 후 Hole/내경이 사라지면 안 된다.
+
+가공 중 Save를 현재 지원하지 않는다면 이번 Phase 때문에 별도 Save
+시스템을 만들지 않는다.
+
+15. OUT OF SCOPE
+
+-   나사 가공
+-   내부 나사
+-   내부 홈
+-   테이퍼 내경
+-   Reamer 실제 가공
+-   자동 이송
+-   CNC
+-   밀링
+-   실제 절삭력/온도 물리
+-   심압대 지지에 따른 진동/처짐 물리
+-   재료시험/NDT
+-   Phase 05 반복 Quest 강제 변경
+
+16. CODEX 구현 순서
+
+17. 기존 Lathe/Tool/Geometry/UI AUDIT
+
+18. InnerProfile/Hole Geometry 기반
+
+19. Tailstock/Quill/MountedTool
+
+20. CenterDrill
+
+21. Drill
+
+22. BoringTool/Internal Cutting
+
+23. Outer+Inner Mesh 갱신
+
+24. Inner TrueDimension 연결
+
+25. UI 공구 분류/현재 공구/버튼/상태 메시지 개선
+
+26. Save/Load 영향 반영
+
+27. 전체 회귀 테스트
+
+28. 필수 테스트
+
+TEST 01 — Tailstock 공구 선택 가능. TEST 02 — CenterDrill 장착 시
+Visual/ToolType 일치. TEST 03 — 센터드릴 실제 접촉 시 Hole Feature와
+Mesh 변경. TEST 04 — Drill 가공 시 선택 직경의 Hole 생성. TEST 05 — Hole
+Depth 데이터와 Visual 일치. TEST 06 — Hole 없는 Solid에 Boring 시 가공
+불가. TEST 07 — Hole 생성 후 Boring 가능. TEST 08 — 내경 확대 시
+OuterProfile 유지. TEST 09 — 외경 추가 가공 시 InnerProfile 유지. TEST
+10 — Geometry 경계에서 NaN/뒤집힌 Mesh 없음. TEST 11 — 공구 변경 시 현재
+공구 표시 즉시 갱신. TEST 12 — 불가능 조작 시 한국어 상태 메시지. TEST
+13 — 16:9 UI 겹침 없음. TEST 14 — 16:10 UI 겹침 없음. TEST 15 — 21:9 UI
+겹침 없음. TEST 16 — Phase 04 Inventory Workpiece에서 Hole/Internal 가공
+가능. TEST 17 — Phase 05 기존 반복 Quest 정상. TEST 18 — QUEST 01 정상.
+TEST 19 — Handwheel/Zero Set/Chamfer/Measurement/4 View 정상. TEST 20 —
+Console Error 0.
+
+18. PASS
+
+-   기능성 Tailstock
+-   CenterDrill이 실제 Geometry 변경
+-   Drill이 Hole Diameter/Depth 변경
+-   Solid에 Boring 직접 진입 불가
+-   Hole에 Boring 가능
+-   OuterProfile/InnerProfile 독립 유지
+-   Mesh/Data 일치
+-   Inner TrueDimension 조회 기반
+-   현재 공구 즉시 확인 가능
+-   외경/내경/심압대 공구 접근 개선
+-   불가능 조작에 한국어 피드백
+-   주요 해상도 UI 겹침 없음
+-   기존 시스템 회귀 없음
+-   Console Error 0
+
+19. FAIL
+
+-   Tailstock이 장식뿐임
+-   센터드릴/드릴이 Visual만 변경
+-   Hole 데이터와 Mesh 불일치
+-   BoringTool이 Solid 내부를 그대로 절삭
+-   내경 가공 시 외경 초기화
+-   외경 가공 시 Hole 삭제
+-   Tool Visual/실제 ToolType 불일치
+-   Handwheel 영역 가림
+-   공구 선택에 과도한 Popup/클릭 필요
+-   현재 공구를 화면에서 알 수 없음
+-   불가능 조작이 설명 없이 무시됨
+-   특정 해상도 UI 겹침
+-   기존 Quest/Inventory/측정 손상
+-   나사/CNC 등 범위 밖 기능 임의 구현
+
+20. CODEX 보고 형식
+
+[VERTICAL SLICE PHASE 06 RESULT]
+
+1.  Lathe/Geometry/Tool/UI AUDIT
+
+2.  Inner Geometry 구조
+
+3.  Tailstock/Quill
+
+4.  CenterDrill
+
+5.  Drill
+
+6.  BoringTool/Internal Cutting
+
+7.  Mesh/Visual
+
+8.  Measurement 연결
+
+9.  UI 접근성 변경
+
+10. Save/Load 영향
+
+11. TEST 01~20 PASS/FAIL
+
+12. 수정 파일 목록
+
+13. QUEST 01 + Phase 01~05 회귀 테스트
+
+14. 남은 문제
+
+15. 완료 정의
+
+기존 선반 화면에서 심압대를 사용하고, 센터드릴과 드릴로 실제 Hole
+Geometry를 생성한 뒤, 내경 바이트로 해당 Hole의 내경을 확대/정삭할 수
+있어야 한다.
+
+외경/내경 Geometry가 독립적으로 유지되고, 가공 UI에서 현재 공구와 공구
+계열을 쉽게 확인/선택할 수 있어야 한다.
+
+기존 Handwheel, Zero Set, Chamfer, Measurement, Inventory, Quest가
+유지되고 Console Error가 없으면 Phase 06 완료다.
+
+REVISION NOTE — REV1
+
+Phase 06 v0.1을 기준으로 다음 조작/UI/공구 변경을 추가한다.
+
+1.  가공 UI를 접이식 미니 탭 방식으로 변경.
+2.  심압대 Visual ON/OFF 추가.
+3.  심압대 Quill 전진/후퇴 버튼을 제거하고 전용 Z 다이얼로 변경.
+4.  절단 바이트와 WorkpieceInstance 분할 시스템 추가.
+5.  황삭 바이트를 평행사변형 형상으로 변경하고 실제 Cutting Edge와
+    Visual을 일치.
+6.  주축 회전/정지를 항상 노출되는 핵심 UI로 재배치.
+7.  활성 장비에 따라 Handwheel 표시를 전환:
+    -   공구대 외경/내경/절단/모따기: X + Z
+    -   심압대 센터드릴/드릴: Quill Z만 표시.
+
+============================================================ A. 가공 UI
+미니 탭 ============================================================
+
+상시 모든 기능 버튼을 펼쳐놓지 않는다.
+
+상위 버튼 예: [공구] [심압대] [측정] [카메라]
+
+-   누르면 버튼 근처에 작은 패널을 펼친다.
+-   동시에 하나의 미니 탭만 연다.
+-   다른 탭을 열면 기존 탭은 자동으로 닫는다.
+-   같은 버튼을 다시 누르면 닫을 수 있다.
+-   미니 탭이 주축 버튼, Handwheel, 공작물 주요 관찰 영역을 가리지
+    않는다.
+-   현재 선택 공구는 탭을 닫아도 상시 상태 영역에서 확인 가능하다.
+-   연속 Modal Popup 방식 금지.
+
+공구 탭: - 황삭 바이트 - 정삭 바이트 - 모따기 바이트 - 절단 바이트 -
+내경 바이트
+
+심압대 탭: - 센터드릴 - Drill Preset - 심압대 표시 ON/OFF
+
+상시 표시: - 주축 회전/정지 - 현재 장비/공구 - 현재 Context에 필요한
+Handwheel - 영점 관련 조작
+
+============================================================ B. 심압대
+가시성 ON/OFF
+============================================================
+
+심압대 표시 ON/OFF를 제공한다.
+
+OFF는 Visual/Rendering만 숨긴다.
+
+OFF로 변경해도 유지: - Tailstock 위치 - Quill 위치 - MountedTool - 가공
+상태 - Hole/Geometry - 내부 데이터
+
+다시 ON이면 정확히 기존 위치/상태로 표시한다.
+
+Visual OFF를 Tailstock 기능 OFF나 공구 해제로 처리하면 FAIL.
+
+============================================================ C. 심압대
+Quill 다이얼
+============================================================
+
+기존 전진/후퇴 버튼식 이송을 제거한다.
+
+심압대 Quill은 전용 Z Handwheel로 전진/후퇴한다.
+
+-   Mouse Wheel 및 기존 Handwheel Direct Drag 방식 재사용 가능.
+-   Fixed Pointer + Rotating Wheel 구조 권장.
+-   PATCH_002 Handwheel 입력/표시 구조를 재사용할 수 있다.
+-   공구대 Z와 Tailstock Quill Z는 완전히 별개의 상태다.
+-   Dial 회전량과 실제 Quill 이동량은 동일 Command에서 계산한다.
+-   Visual-only 회전 금지.
+-   Quill Stroke 최소/최대 Clamp.
+-   CenterDrill/Drill 절입 깊이는 실제 Quill 이동 + Contact 결과로 결정.
+-   버튼 클릭으로 일정 거리 순간이동 금지.
+
+============================================================ D. Context
+기반 Handwheel 표시
+============================================================
+
+공구대 활성: - 외경 황삭/정삭: X + Z - 내경 바이트: X + Z - 모따기
+바이트: X + Z - 절단 바이트: X + Z
+
+심압대 활성: - 센터드릴: Quill Z만 - 드릴: Quill Z만
+
+심압대 Z는 공구대 Z와 다른 축이다.
+
+Context 전환 때 Handwheel 영역이 화면 여기저기로 이동하지 않는다. X가
+숨겨져도 Z의 기준 위치를 일관되게 유지한다.
+
+표시 예: 공구대 | 황삭 바이트 공구대 | 내경 바이트 심압대 | Ø10 드릴
+
+============================================================ E. 주축
+회전 UI ============================================================
+
+주축 회전/정지는 미니 탭에 넣지 않는다.
+
+주축은 Handwheel과 같은 상시 핵심 조작이다.
+
+-   항상 접근 가능.
+-   어떤 미니 탭에도 가려지지 않음.
+-   Context가 바뀌어도 위치 고정.
+-   회전/정지 상태 즉시 확인.
+-   충분한 Hit Area.
+-   기존 Spindle Command 재사용.
+-   UI 전용 중복 Spindle 로직 금지.
+
+대표 흐름: 주축 ON → 절입 → 주축 OFF → 측정 → 주축 ON → 가공 계속
+
+이 과정에서 주축 버튼을 찾기 위해 탭을 열어야 하면 FAIL.
+
+============================================================ F. 절단
+바이트 / Workpiece Split
+============================================================
+
+새 Tool Type: PartingTool
+
+Player-Facing: 절단 바이트
+
+절단 과정: 1. 외경 접촉. 2. X 절입에 따라 절단 홈 생성. 3. 중심까지
+도달하기 전에는 하나의 WorkpieceInstance 유지. 4. 완전 절단 시 두 개의
+독립 WorkpieceInstance로 Split.
+
+길이 보존: L_before = L_piece_A + Kerf + L_piece_B
+
+L_before는 최초 Nominal Length가 아니라 절단 직전 현재 Geometry의 실제
+길이다.
+
+예: 현재 길이 100 mm Kerf 2 mm A = 40 mm => B = 58 mm => 100 = 40 + 2 +
+58
+
+금지: 100 → 60 + 60 같은 길이/재료 복제.
+
+Split 결과: - A/B 각각 새로운 고유 InstanceId. - MaterialDefinition
+상속. - IdentificationState 상속. - 현재 전역 ConditionProperties는 우선
+양쪽에 상속. - 각 조각은 자신이 차지하던 Geometry 구간만 보유. - 원본
+전체 Geometry를 양쪽에 복제 금지. - Kerf는 제거 재료이며 어느 결과물에도
+포함하지 않음. - 분리된 잔재도 정상 WorkpieceInstance로 Inventory에서
+재사용 가능. - Split 실패 시 원본 Instance 삭제 금지. - Save/Load 후에도
+두 Instance 독립 유지.
+
+부분 절입은 홈만 만들고 Split하지 않는다. 실제 Cutting Edge가 중심까지
+완전히 도달했을 때만 Split한다.
+
+============================================================ G. 황삭
+바이트 형상 ============================================================
+
+황삭 바이트 Visual을 측면 기준 평행사변형 형태로 변경한다.
+
+단순 Visual 변경이 아니다.
+
+-   Visual Mesh 평행사변형.
+-   실제 Cutting Edge를 보이는 선단과 일치.
+-   Contact/Cutting 판정도 동일 Cutting Edge 기준.
+-   공구대 장착 높이 정상 유지.
+-   기존 황삭 절삭 기능/X/Z 조작 유지.
+
+Visual은 평행사변형인데 실제 절삭점이 기존 사각 Tool 위치에 남으면 FAIL.
+
+============================================================ H. REV1
+추가 테스트 ============================================================
+
+TEST 21 미니 탭을 전환한다. EXPECTED: 동시에 하나만 열리고
+주축/Handwheel을 가리지 않음.
+
+TEST 22 심압대 Visual OFF → ON. EXPECTED: Visual만 바뀌고
+Quill/Tool/Geometry 상태 유지.
+
+TEST 23 심압대 Quill Z Dial 조작. EXPECTED: Dial 회전과 실제 Quill
+이동이 일치.
+
+TEST 24 공구대/심압대 Context 전환. EXPECTED: 공구대는 X+Z, 심압대는
+Quill Z만 표시.
+
+TEST 25 모든 Context에서 주축 조작. EXPECTED: 같은 위치에서 즉시 접근
+가능.
+
+TEST 26 절단 바이트 부분 절입. EXPECTED: 홈만 생성, Split 없음.
+
+TEST 27 절단 바이트 완전 절단. EXPECTED: 고유 InstanceId를 가진 두
+공작물 생성.
+
+TEST 28 절단 길이 보존. EXPECTED: L_before = L_A + Kerf + L_B.
+
+TEST 29 분리 잔재. EXPECTED: 독립 WorkpieceInstance로 Inventory에서
+재사용 가능.
+
+TEST 30 황삭 바이트. EXPECTED: 평행사변형 Visual의 실제 선단과 Cutting
+Edge/Contact가 일치.
+
+============================================================ I. REV1
+추가 PASS ============================================================
+
+-   상시 핵심 조작과 접이식 기능 UI가 명확히 분리됨.
+-   주축 버튼 접근성이 개선됨.
+-   공구대 X/Z와 Tailstock Quill Z가 혼동되지 않음.
+-   심압대 Visual OFF가 기능 상태를 변경하지 않음.
+-   절단 시 길이/재료 보존.
+-   절단 잔재 재사용 가능.
+-   황삭 바이트 Visual과 실제 Cutting Edge 일치.
+
+============================================================ J. REV1
+추가 FAIL ============================================================
+
+-   주축 버튼이 미니 탭 내부에 숨겨짐.
+-   미니 탭이 Handwheel을 가림.
+-   공구대 Z와 Tailstock Z가 같은 상태값을 공유.
+-   심압대 모드에서 불필요한 X Dial 표시.
+-   심압대 OFF가 기능/좌표를 초기화.
+-   절단 전보다 결과물 총 길이가 증가.
+-   부분 절입만 했는데 Split.
+-   양쪽 결과물에 원본 전체 Geometry 복제.
+-   황삭 바이트 Visual과 실제 절삭점 불일치.
+
+============================================================ K. CODEX
+REV1 보고 추가 항목
+============================================================
+
+기존 Phase 06 보고에 추가: - 미니 탭 UI 구조 - 주축 고정 UI 위치 -
+Context별 Handwheel 표시 - Tailstock Visual Toggle - Quill Dial
+Command - PartingTool / Kerf / Split 구현 - WorkpieceInstance 분할 및
+Inventory 처리 - 황삭 바이트 Visual/Cutting Edge 수정 - TEST 21~30
+PASS/FAIL
+
+============================================================ REVISION
+NOTE — REV2 ============================================================
+
+REV1 기준 Inventory 치수 표시를 수정한다.
+
+핵심: - Inventory에서 WorkpieceDefinition의 기준 길이가 아니라 각
+WorkpieceInstance의 현재 실제 길이를 표시한다. - 단면 가공/절단/Split
+등으로 길이가 변하면 Inventory 표시도 현재 Geometry와 함께 갱신한다.
+
+============================================================ L.
+INVENTORY CURRENT ACTUAL LENGTH — REV2
+============================================================
+
+1.  표시 규칙
+
+Inventory List와 Detail 모두 현재 실제 길이를 표시한다.
+
+예: 환봉 | Ø50 | 82.4 mm
+
+Detail: 현재 길이: 82.4 mm
+
+같은 WorkpieceDefinition이라도 Instance별 길이를 따로 표시한다.
+
+예: 환봉 | Ø50 | 82.4 mm 환봉 | Ø50 | 46.0 mm 환봉 | Ø50 | 31.5 mm
+
+2.  Nominal Length / Actual Length 분리
+
+Nominal Length: - WorkpieceDefinition의 원래/기준 치수.
+
+Current Actual Length: - 현재 WorkpieceInstance가 실제 Geometry에서
+차지하는 축방향 길이. - 가공에 따라 변경 가능. - Player Inventory에서
+우선 표시할 값.
+
+Inventory의 길이는 Current Actual Length를 의미한다. Nominal Length를
+실제 길이처럼 표시하면 FAIL.
+
+3.  Source of Truth
+
+Current Actual Length의 Source of Truth는 현재 Workpiece Geometry다.
+
+권장: CurrentActualLength = CurrentGeometry.GetAxialLength()
+
+정확한 API/이름은 기존 Geometry 구조 AUDIT 후 결정한다.
+
+UI 전용 Length 숫자를 Geometry와 별개로 독립 관리하지 않는다. 이미 현재
+길이를 나타내는 데이터가 있으면 그것을 재사용한다.
+
+4.  가공 후 갱신
+
+다음 경우 실제 길이를 다시 반영한다.
+
+-   축방향/단면 가공으로 전체 길이가 감소
+-   PartingTool Split
+-   향후 실제 Geometry 길이를 바꾸는 가공
+
+예: 절단 전 100.0 mm Kerf 2.0 mm Piece A 40.0 mm Piece B 58.0 mm
+
+Inventory 결과: A — 40.0 mm B — 58.0 mm
+
+두 조각에 원본 100.0 mm를 그대로 표시하면 FAIL.
+
+5.  Inventory List
+
+최소: - DisplayName - Current Actual Length
+
+공간이 허용되면: - 대표 직경/형상 - Current Actual Length -
+IdentificationState - OverallConditionScore
+
+동일 종류 공작물을 Stack하여 Instance별 길이를 잃지 않는다.
+
+6.  Inventory Detail
+
+기존 형상/치수 영역에: 현재 길이: XX.X mm
+
+Nominal Length도 표시할 필요가 있다면: 기준 길이: 100.0 mm
+현재 길이: 82.4 mm
+
+처럼 의미를 분리한다.
+
+7.  Machining Selection UI
+
+Phase 04의 가공 공작물 선택 화면에서도 Inventory와 동일한 Current Actual
+Length를 표시한다.
+
+Quest/가공 적합성 판정 역시 Current Actual Length를 사용한다.
+
+예: Required Length = 55 mm Current Actual Length = 48 mm => 선택 불가.
+
+UI는 현재 길이를 보여주면서 내부 판정은 Nominal Length를 사용하는 데이터
+불일치 금지.
+
+8.  Save / Load
+
+Actual Length가 Geometry에서 파생된다면 중복 저장하지 않는 것을
+우선한다.
+
+Save: 현재 Geometry 저장.
+
+Load: Geometry 복원 후 Actual Length 재계산.
+
+캐시가 필요하면 Load 후 Geometry와 반드시 동기화한다.
+
+9.  단위
+
+Player-Facing: mm
+
+기본 표시: 소수점 첫째 자리 권장.
+
+예: 82.4 mm
+
+UI 반올림 값을 실제 Geometry에 다시 기록하지 않는다.
+
+============================================================ M. REV2
+TEST ============================================================
+
+TEST 31 기본 Inventory. EXPECTED: 각 Instance의 현재 실제 길이 표시.
+
+TEST 32 동일 Definition, 서로 다른 길이. EXPECTED: 각 Instance가 서로
+다른 Actual Length 표시.
+
+TEST 33 가공으로 길이 감소. EXPECTED: Inventory 복귀 후 감소된 길이
+표시.
+
+TEST 34 PartingTool Split. EXPECTED: A/B 각각 실제 분할 길이 표시.
+
+TEST 35 Kerf 보존. EXPECTED: 표시된 A/B 길이와 Kerf가 REV1 길이 보존식을
+만족.
+
+TEST 36 가공 공작물 선택 UI. EXPECTED: Inventory와 동일한 Actual Length
+표시.
+
+TEST 37 Quest 길이 적합성. EXPECTED: Nominal이 아닌 Current Actual
+Length 기준 판정.
+
+TEST 38 Save/Load. EXPECTED: Load 후 Geometry와 Inventory Actual Length
+일치.
+
+============================================================ N. REV2
+PASS / FAIL ============================================================
+
+PASS: - Inventory List에서 실제 현재 길이 확인 가능. - Detail에서 실제
+현재 길이 확인 가능. - Instance별 길이 구분. - Split 후 각 조각 실제
+길이 표시. - 가공 선택 UI와 Inventory 길이 일치. - Quest 적합성 판정도
+실제 길이 사용. - Geometry가 Actual Length의 Source of Truth.
+
+FAIL: - Nominal Length만 표시. - 가공/절단 후에도 획득 당시 길이 표시. -
+Split된 두 공작물이 원본 길이를 그대로 표시. - UI와 Quest 판정 길이가
+다름. - UI 전용 길이를 Geometry와 독립 관리하여 불일치. - Save/Load 후
+길이가 이전 값으로 되돌아감.
+
+============================================================ O. CODEX
+REV2 REPORT ============================================================
+
+기존 Phase 06 보고에 추가: 1. Actual Length Source of Truth 2. Inventory
+List 변경 3. Inventory Detail 변경 4. Machining Selection UI 변경 5.
+Split 후 길이 표시 6. Quest Length Compatibility 7. Save/Load 동기화 8.
+TEST 31~38 PASS/FAIL

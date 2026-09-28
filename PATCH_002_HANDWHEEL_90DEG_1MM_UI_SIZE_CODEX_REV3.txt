@@ -1,0 +1,133 @@
+LAST MACHINIST — CODEX PATCH_002 REVISION 3
+HANDWHEEL 90DEG = 1MM / UI DISPLAY SIZE CORRECTION
+
+[IMPORTANT]
+기존 PATCH_002 및 REV2의 수정판이다. 새 PATCH 번호를 만들지 않는다.
+기존 정상 동작은 유지하면서 아래 규칙으로 교체하라.
+
+1. 이송 규칙
+기존 '15° = 1 mm' 규칙은 전부 폐기한다.
+새 규칙은 ×1 기준 '90° = 1 mm'이다.
+
+0° = 0 mm
+90° = 1 mm
+180° = 2 mm
+270° = 3 mm
+360° = 4 mm
+
+기존 코드, 상수, 주석, 테스트, 도움말에 15°=1mm가 남아 있으면 수정한다.
+
+2. Wheel 표시
+Wheel_Disc 주요 숫자는:
+12시 = 0
+3시 = 1
+6시 = 2
+9시 = 3
+
+0/1/2/3은 90° 간격의 주요 눈금이다.
+보조 눈금은 허용하되 주요 숫자와 90° 눈금이 명확히 보여야 한다.
+숫자와 눈금은 Wheel_Disc와 함께 회전한다.
+
+3. Fixed_Pointer
+Fixed_Pointer는 Wheel_Disc와 별도 UI 요소다.
+Wheel 바깥쪽 정확한 12시 방향에 짧은 검은 기준선으로 배치한다.
+Wheel 내부를 가로지르거나 숫자/눈금을 가리지 않는다.
+Wheel_Disc만 회전하며 Fixed_Pointer는 절대 회전하지 않는다.
+
+권장:
+HandwheelRoot [고정]
+├── Wheel_Disc [회전]
+└── Fixed_Pointer [고정]
+
+4. 핵심 수정 — 이미지 해상도가 아니라 UI 크기를 키울 것
+현재 가독성 문제는 이미지 픽셀 해상도가 아니라 게임 화면에서 Wheel이 너무 작게 표시되는 것이다.
+
+Sprite를 512×512에서 1024×1024 등으로 바꾸는 것만으로 해결하지 마라.
+실제 Unity UI에서 다음을 조정하여 Wheel이 화면에서 더 크게 보이게 하라:
+- RectTransform Width
+- RectTransform Height
+- UI Scale / Layout Size
+- 필요 시 Anchor / Position
+- Raycast / Drag Hit Area
+
+즉, '이미지 해상도 증가'가 아니라 '실제 화면 표시 크기 증가'가 필수다.
+
+1920×1080에서 별도 확대 없이 0/1/2/3, 주요 눈금, 보조 눈금, Pointer 위치를 즉시 읽을 수 있어야 한다.
+X/Z Handwheel 모두 같은 가독성 기준을 만족해야 한다.
+
+Wheel을 키웠다면 직접 드래그 판정 영역도 새 크기에 맞게 키운다.
+보이는 Wheel만 크고 기존 작은 영역에서만 드래그되는 상태는 FAIL이다.
+
+5. 입력 계산
+모든 입력은 동일 Handwheel Command를 사용한다.
+
+INPUT
+→ rotation delta
+→ 90° 기준 이동량
+→ 현재 배율
+→ 기존 Axis Movement Command
+→ Wheel_Disc 회전
+→ HUD 갱신
+
+×1: 90° = 1 mm
+×10: 90° = 10 mm
+×100: 90° = 100 mm
+
+마우스 휠과 UI 직접 드래그가 다른 계산 경로를 사용하지 않는다.
+
+6. Codex 작업 순서
+1) 현재 PATCH_002 구현을 AUDIT한다.
+2) 15°=1mm가 구현된 모든 위치를 찾는다.
+3) 90°=1mm로 교체한다.
+4) Wheel 숫자를 0/1/2/3의 90° 구조로 적용한다.
+5) Fixed_Pointer가 외곽 12시에 고정되어 있는지 확인한다.
+6) 이미지 해상도가 아니라 X/Z Wheel의 실제 RectTransform/Layout 크기를 확대한다.
+7) 확대된 크기에 맞춰 Drag/Raycast 영역도 확대한다.
+8) 1920×1080에서 가독성을 확인한다.
+9) 기존 입력/선삭/측정/주축/카메라 기능 회귀 테스트를 한다.
+
+7. PASS
+- ×1에서 90° = 1 mm
+- 180° = 2 mm
+- 270° = 3 mm
+- 360° = 4 mm
+- 숫자 0/1/2/3이 90° 간격
+- Fixed_Pointer가 외곽 12시에 고정
+- Wheel_Disc만 회전
+- Sprite 해상도만 변경한 것이 아니라 실제 UI 표시 크기가 확대됨
+- 1920×1080에서 숫자/눈금이 즉시 읽힘
+- X/Z Wheel 모두 충분히 큼
+- 확대된 Wheel 전체에서 Drag 정상 작동
+- Mouse Wheel과 Direct Drag가 동일 Command 사용
+- 기존 정상 시스템 유지
+
+8. FAIL
+- 15°=1mm 규칙이 남아 있음
+- 90°와 1mm 이송이 불일치
+- 0/1/2/3 구조가 아님
+- Pointer가 Wheel과 함께 회전
+- Pointer가 Wheel 내부를 가로지름
+- 이미지 원본 해상도만 높이고 실제 UI 크기는 그대로
+- Wheel이 여전히 작아 숫자를 읽기 어려움
+- X/Z 중 한쪽만 확대
+- Wheel만 커지고 Drag 영역은 작음
+- 입력 경로별 이송량 불일치
+- 기존 정상 선반 기능 파손
+
+9. 완료 후 보고
+[PATCH_002 REV3 RESULT]
+- 수정 파일 목록
+- 15°=1mm 제거 위치
+- 90°=1mm 적용 위치
+- X/Z Wheel RectTransform/Layout 변경
+- Fixed_Pointer 위치/고정 방식
+- Drag 영역 변경
+- PASS 항목별 결과
+- 남은 문제
+
+완료 정의:
+×1 기준 90° 회전이 정확히 1mm 이송이며, Wheel은 0/1/2/3 구조이고,
+Pointer는 외곽 12시에 고정되어 있으며, 이미지 해상도가 아니라 실제 게임 화면의
+Handwheel UI 크기가 숫자와 눈금을 쉽게 읽을 수 있을 정도로 확대되어 있어야 한다.
+
+PATCH_002 REVISION 3 END

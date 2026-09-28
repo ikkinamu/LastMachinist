@@ -1,0 +1,6 @@
+{
+  "name": "LastMachinist.Runtime",
+  "rootNamespace": "LastMachinist",
+  "references": ["Unity.InputSystem"],
+  "autoReferenced": true
+}

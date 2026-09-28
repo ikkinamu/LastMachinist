@@ -1,0 +1,615 @@
+LAST MACHINIST VERTICAL SLICE PHASE 07 EXPLORATION MAP & REGION
+PROGRESSION v0.1
+
+============================================================ 0. 문서
+목적 ============================================================
+
+본 Phase는 기존 Phase 01의 단순 지역 선택형 탐색 UI를 확장하여, Last
+Machinist의 장기 진행에 사용할 수 있는 “지도 이미지 기반 탐색 / 지역
+발견 / 접근 가능 상태 / 퀘스트 연동” 기반을 구현한다.
+
+MVP 및 PATCH_001~003은 동결 상태를 유지한다. 기존 Exploration Scene /
+First Person Controller / Region 진입 흐름을 폐기하지 않고 확장한다.
+
+Phase 07의 핵심은 단순한 지역 선택 버튼 추가가 아니다.
+
+플레이어가: - 세계에 어떤 지역이 존재하는지 정보를 얻고 - 지도에서
+위치를 확인하고 - 아직 정확히 모르는 장소를 발견하고 - 접근 가능 여부를
+확인하고 - 관련 퀘스트에 따라 새로운 지역으로 향하는
+
+진행 구조를 만든다.
+
+Phase 07의 실제 검증 사례는 QUEST 01 완료 이후 “폐작업장” 정보가 지도에
+나타나는 흐름으로 한다.
+
+탁상드릴의 실제 발견/회수/설치 및 QUEST 02 본체는 Phase 07 범위에
+포함하지 않는다.
+
+============================================================ 1. 플레이
+흐름 ============================================================
+
+기본 흐름:
+
+작업장 → [탐색] 탭 → 지도 이미지 표시 → 지역 마커 선택 → 지역 정보 확인
+→ [탐색 시작] → 기존 3D Exploration Scene 진입 → 탐색 → [작업장 복귀] →
+작업장
+
+Phase 07에서는 지역 간 직접 이동을 구현하지 않는다.
+
+금지: 폐작업장 → 농가 농가 → 다른 탐색 지역
+
+초기 이동 Hub는 작업장으로 유지한다.
+
+향후 차량/여행 시스템에서 지역 간 이동을 확장할 수 있는 구조만 유지한다.
+
+============================================================ 2. 탐색 탭
+UI 구조 ============================================================
+
+기존 탐색 탭을 지도 기반 UI로 변경한다.
+
+권장 레이아웃:
+
+┌──────────────────────────────────────────────────────────┐ │ 탐색 │
+├─────────────────────────────────┬────────────────────────┤ │ │ 선택
+지역 정보 │ │ │ │ │ MAP BACKGROUND │ 지역명 │ │ │ 간단 설명 │ │ ? ● │
+접근 상태 │ │ │ 알려진 정보 │ │ ◎ │ 관련 활성 의뢰 │ │ │ 주요 발견 기록
+│ │ │ │ │ │ [탐색 시작] │
+└─────────────────────────────────┴────────────────────────┘
+
+왼쪽: - 지도 배경 이미지 - Region Marker Container - 지역 마커
+
+오른쪽: - 선택 지역 정보 패널 - 지역명 - Description - 접근 상태 - Known
+Information - Related Active Quest - Major Discoveries - [탐색 시작]
+
+[탐색 시작]은 해당 지역이 Accessible 상태일 때만 활성화한다.
+
+============================================================ 3. 지도
+배경 이미지 ============================================================
+
+Phase 07부터 탐색 탭은 단순 버튼 목록이 아니라 실제 지도 이미지 위에
+지역 마커를 표시한다.
+
+지도 이미지 역할: - 도로 - 강/수로 - 농경지 - 건물군 - 폐허/산업 지역
+윤곽 - 주요 지형
+
+지도 이미지에 직접 포함하지 않는 것: - 지역 이름 - ? - Quest Icon - 완료
+표시 - 접근 가능/불가 표시 - 플레이 진행 상태 - 탁상드릴 등 주요 발견물
+아이콘
+
+위 요소는 모두 Unity UI Layer에서 처리한다.
+
+이유: 플레이 진행에 따라 마커와 상태를 동적으로 변경할 수 있어야 한다.
+
+권장 Hierarchy:
+
+ExplorationTab ├── MapArea │ ├── MapBackgroundImage │ └──
+RegionMarkerContainer │ ├── WorkshopMarker │ ├── FarmMarker │ └──
+AbandonedWorkshopMarker └── RegionInfoPanel
+
+지도 이미지는 Last Machinist 세계관에 맞는 낡은 현장 지도 / 단순화된
+지역 지도 계열을 권장한다.
+
+현대적인 GPS/위성 지도 앱 스타일은 우선 사용하지 않는다.
+
+중요: 지도 배경 이미지 제작은 코드로 억지 생성하지 않는다.
+
+EXTERNAL ART REQUIRED: - Exploration Map Background Image
+
+초기 구현에서는 임시 Placeholder Map을 사용할 수 있으나, 최종 Phase 07
+확인 전 실제 교체 가능한 Image Slot 구조가 존재해야 한다.
+
+============================================================ 4.
+RegionDefinition
+============================================================
+
+지역 데이터는 UI 버튼에 하드코딩하지 않는다.
+
+권장 데이터 구조:
+
+RegionDefinition - RegionId - DisplayName - Description - SceneId /
+SceneReference - MapPositionNormalized - InitialDiscoveryState -
+KnownInformation - RelatedQuestIds - MajorDiscoveryDefinitions -
+Optional MapIcon - Optional AccessRequirement
+
+정확한 클래스/ScriptableObject 구조는 기존 프로젝트를 AUDIT한 후 현재
+Region 데이터 구조를 우선 확장한다.
+
+중복 Region 시스템을 새로 만들지 않는다.
+
+============================================================ 5.
+MapPositionNormalized
+============================================================
+
+지역 마커 위치는 고정 Pixel 좌표로 하드코딩하지 않는다.
+
+예: MapPositionNormalized = (0.63, 0.41)
+
+지도 이미지 내부 상대 좌표를 사용한다.
+
+목적: - 16:9 - 16:10 - 21:9
+
+등 해상도/Aspect Ratio 변화에도 지역 마커가 지도상의 실제 위치에서
+벗어나지 않도록 한다.
+
+FAIL: - X=734, Y=281 같은 절대 Pixel 위치만 저장. - 해상도 변경 시
+마커가 도로/건물 위치에서 이탈.
+
+============================================================ 6. 지역
+Discovery State
+============================================================
+
+지역의 “존재를 얼마나 알고 있는가”와 “실제로 들어갈 수 있는가”를
+분리한다.
+
+최소 Discovery State:
+
+Hidden Rumored Discovered
+
+Hidden: - 플레이어가 존재 자체를 모름. - 지도 마커 표시 없음.
+
+Rumored: - 위치/정보를 전해 들은 상태. - 지도에는 ? 또는 미확인 마커
+표시. - 정확한 지역명/정보는 제한 가능.
+
+Discovered: - 지역의 정체가 확인됨. - 실제 지역명과 기본 정보 표시.
+
+접근 가능 여부는 Discovery State와 별도 데이터로 관리한다.
+
+예: IsAccessible = true / false 또는 기존 조건 시스템에 맞는 Access
+State.
+
+이유: 지역을 발견했어도 도로 붕괴, 차량 필요 등의 이유로 현재 들어갈 수
+없는 상태가 필요하다.
+
+============================================================ 7. 접근
+상태 ============================================================
+
+Discovered와 Accessible은 동일하지 않다.
+
+예:
+
+폐공장 - Discovered - IsAccessible = false - 이유: 도로 붕괴
+
+향후 차량 복구: - IsAccessible = true
+
+지역 정보창에서 접근 불가 사유를 표시할 수 있어야 한다.
+
+예: 현재 접근할 수 없습니다. 진입로가 붕괴되어 있습니다.
+
+Phase 07에서는 복잡한 차량 조건을 구현하지 않는다. 접근 가능/불가를
+표현하고 변경할 수 있는 기반만 구현한다.
+
+============================================================ 8. 지역
+완료 상태를 Discovery State에 넣지 않음
+============================================================
+
+Completed를 지역 Discovery State로 사용하지 않는다.
+
+이유: 주요 Quest를 완료해도 해당 지역은 다시 탐색할 수 있기 때문이다.
+
+예:
+
+폐작업장 - 탁상드릴 회수 완료 - 그러나 폐작업장은 계속 탐색 가능
+
+따라서 다음을 분리한다.
+
+Region Discovery State ≠ Quest State ≠ Major Discovery State ≠ Resource
+State
+
+지역 하나의 Quest를 완료했다고 Region 자체를 완료/폐쇄하지 않는다.
+
+============================================================ 9. 재탐색
+============================================================
+
+한 번 방문한 지역도 다시 탐색할 수 있다.
+
+QUEST 완료나 주요 설비 회수 후에도 Accessible 상태라면 [탐색 시작] 가능.
+
+Phase 07에서는: - Resource Respawn - Loot Regeneration - 시간 기반
+재생성
+
+을 구현하지 않는다.
+
+단순히 “다시 진입 가능” 구조만 보장한다.
+
+============================================================ 10. Known
+Information ============================================================
+
+지역 정보창은 플레이어가 현재 알고 있는 정보만 표시한다.
+
+예: Rumored 폐작업장
+
+지역명: 폐작업장으로 추정되는 장소
+
+Known Information: - 박성철에게 위치를 전해 들었다. - 오래된 소규모
+작업장이 있었던 것으로 보인다. - 소형 공작기계가 남아 있을 가능성이
+있다.
+
+금지: - 방문 전부터 탁상드릴 있음 표시. - 숨겨진 아이템 전체 개수
+표시. - 실제 내부 Material/Item 정보를 자동 공개.
+
+정보는 진행에 따라 추가될 수 있어야 한다.
+
+============================================================ 11. Major
+Discoveries ============================================================
+
+일반 Loot와 중요한 세계 진행 발견물을 분리한다.
+
+Major Discovery 예: - 탁상드릴 - 중요 설비 - 차량 - 특수 문서 - 새로운
+지역 위치 정보
+
+일반 공작물/재료는 Major Discovery 목록에 자동 등록하지 않는다.
+
+지도에서 다음과 같은 수집률 UI는 만들지 않는다.
+
+아이템 8 / 13 숨겨진 장비 1 / 3
+
+탐색을 체크리스트 수집 게임으로 만들지 않는다.
+
+Major Discovery는 발견 이후에만 표시한다.
+
+예: 주요 발견: 탁상드릴
+
+발견 전에는: 주요 발견: ??? 같이 개수를 스포일러하는 방식도 우선
+사용하지 않는다.
+
+============================================================ 12. Quest와
+Region 분리 ============================================================
+
+Region 자체를 Quest Object로 사용하지 않는다.
+
+예:
+
+Region: 폐작업장
+
+Quest: 새로운 장비를 찾아서
+
+Quest Objective: 폐작업장을 조사한다.
+
+Quest가 종료되어도 Region은 유지된다.
+
+지도에서는 지역 마커 위/근처에 관련 활성 Quest가 있음을 나타내는 작은 UI
+표시를 추가할 수 있다.
+
+Quest Marker와 Region Marker의 데이터는 분리한다.
+
+============================================================ 13. 지역
+발견 Trigger
+============================================================
+
+지역을 발견/소문 상태로 변경하는 경로를 하나로 통합한다.
+
+권장 Command/API 개념:
+
+DiscoverRegion(regionId, discoveryLevel)
+
+또는 기존 Architecture에 맞는 동등 기능.
+
+향후 호출 가능한 Source: - NPC 대화 - Quest 진행 - 문서/메모 획득 - 다른
+지역의 표지판/정보 발견 - 탐색 중 실제 장소 발견 - 스토리 Event
+
+Phase 07에서는 최소 QUEST 01 후속 Trigger 하나를 실제 연결한다.
+
+UI가 직접 Region State를 임의 변경하면 안 된다.
+
+============================================================ 14. QUEST
+01 완료 후 실제 진행
+============================================================
+
+Phase 07의 핵심 통합 테스트다.
+
+전제: QUEST 01 멈춰버린 펌프 완료.
+
+완료 직후 또는 후속 대화/Event에서 박성철을 통해 새로운 지역 정보를
+획득한다.
+
+내용 방향: - 예전에 사용되던 소규모 작업장 위치 정보. - 소형 공작기계가
+남아 있을 가능성. - 정확한 내부 상태는 알 수 없음.
+
+그 결과:
+
+1.  폐작업장 Region이 Hidden → Rumored.
+2.  탐색 지도에 ? 마커 등장.
+3.  마커 선택 가능.
+4.  오른쪽 정보창에 제한된 Known Information 표시.
+5.  접근 가능 조건을 만족하면 [탐색 시작] 활성.
+6.  기존 Exploration Scene 시스템을 통해 폐작업장 Scene 진입.
+
+중요: Phase 07에서는 탁상드릴이 실제로 등장하거나 회수/설치될 필요는
+없다.
+
+여기까지가 Phase 07의 Story Integration 범위다.
+
+============================================================ 15. QUEST
+02 연결점 ============================================================
+
+Phase 07 다음 Story Phase에서 QUEST 02를 구현한다.
+
+예정 방향:
+
+QUEST 02 - 폐작업장 탐색 - 탁상드릴 발견 - 회수 - 작업장 복귀 - 탁상드릴
+설치/복구 - 새로운 가공 능력 해금
+
+Phase 07은 이를 위한 Region/Map/Progression 기반만 제공한다.
+
+탁상드릴을 Phase 07에서 미리 Inventory에 지급하거나 지도 정보로 위치를
+직접 공개하지 않는다.
+
+============================================================ 16. 현재
+위치 표시 ============================================================
+
+Phase 07에서는 별도 Player Current Location Marker를 필수 구현하지
+않는다.
+
+현재 이동 구조가: 작업장 → 지역 → 작업장
+
+이므로 지도상 실시간 위치 추적의 가치가 낮다.
+
+향후: - 지역 간 직접 이동 - 차량 이동 - 여행 시스템
+
+이 구현될 때 Current Location을 추가할 수 있다.
+
+============================================================ 17. Save /
+Load ============================================================
+
+최소 저장 대상:
+
+Region별: - RegionId - DiscoveryState - Accessibility 변경 상태가
+Runtime Progression 값이라면 해당 상태 - Known Information Progress -
+Major Discovery 발견 기록
+
+Quest State는 기존 Quest Save 시스템을 사용한다.
+
+Region Save와 Quest Save를 불필요하게 복제하지 않는다.
+
+Load 후: - Hidden 지역은 숨겨짐. - Rumored 지역은 ? 상태 복원. -
+Discovered 지역은 이름/아이콘 복원. - 접근 가능 여부 복원. - Major
+Discovery 기록 복원.
+
+QUEST 01을 이미 완료한 Save에서 폐작업장 정보가 다시 사라지면 FAIL.
+
+============================================================ 18. 기존
+시스템과의 연결
+============================================================
+
+반드시 기존 시스템 AUDIT 후 구현한다.
+
+재사용 대상: - Phase 01 Exploration Tab - Region/Scene 진입 흐름 - First
+Person Controller - 작업장 복귀 - 기존 Quest Window / Quest State - 기존
+Save/Load - 기존 Main UI Tab 구조
+
+새 시스템을 기존 시스템 옆에 중복으로 만들지 않는다.
+
+특히: - 두 개의 Region Manager - 두 개의 Save System - 두 개의 Quest
+State - 별도의 Exploration Scene Loader
+
+가 생기지 않도록 한다.
+
+============================================================ 19. UI / UX
+규칙 ============================================================
+
+1.  지도 배경이 Region Marker보다 시각적으로 강하지 않게 한다.
+2.  Marker는 지도 위에서 충분히 클릭 가능해야 한다.
+3.  선택된 Marker 상태가 명확해야 한다.
+4.  정보 패널은 지도 영역을 과도하게 침범하지 않는다.
+5.  [탐색 시작]은 정보 패널 내 고정된 위치를 유지한다.
+6.  Hidden Region의 존재를 UI Layout 빈칸 등으로 암시하지 않는다.
+7.  Rumored Region은 미확인 상태라는 점이 명확해야 한다.
+8.  접근 불가 지역은 클릭 자체를 막기보다 정보 확인은 가능하게 하고,
+    [탐색 시작]만 비활성화하는 것을 우선한다.
+9.  16:9 / 16:10 / 21:9에서 지도와 Marker 정렬을 확인한다.
+
+============================================================ 20. OUT OF
+SCOPE ============================================================
+
+Phase 07에서 구현하지 않는다:
+
+-   탁상드릴 실제 기능
+-   탁상드릴 회수/설치
+-   QUEST 02 본체
+-   차량 이동
+-   지역 간 직접 이동
+-   Fast Travel
+-   시간/연료 기반 이동 비용
+-   적/전투
+-   Resource Respawn
+-   Loot Respawn
+-   전체 세계 지도 완성
+-   모든 지역 제작
+-   아이템 수집률
+-   지역 100% 완료 시스템
+-   실시간 Player 위치 추적
+-   고급 Fog of War
+-   미니맵
+-   GPS
+-   절차 생성 지도
+-   온라인 지도
+
+============================================================ 21. 구현
+순서 ============================================================
+
+STEP 1 기존 Phase 01 Exploration/Region/Scene Loader/UI/Save 구조 AUDIT.
+
+STEP 2 기존 Region 데이터에 필요한 Progression 데이터를 확장.
+
+STEP 3 DiscoveryState와 Accessibility 분리.
+
+STEP 4 지도 배경 Image Slot과 RegionMarkerContainer 구현.
+
+STEP 5 MapPositionNormalized 기반 Marker 배치.
+
+STEP 6 Region 선택 + RegionInfoPanel 구현.
+
+STEP 7 Hidden / Rumored / Discovered 표시 차이 구현.
+
+STEP 8 Accessible 여부에 따른 [탐색 시작] 처리.
+
+STEP 9 Known Information / Related Quest / Major Discovery 표시 기반
+구현.
+
+STEP 10 QUEST 01 완료 후 폐작업장 Rumored Trigger 연결.
+
+STEP 11 기존 3D Exploration Scene 진입/귀환과 연결.
+
+STEP 12 Save/Load 확장.
+
+STEP 13 Resolution / Regression Test.
+
+============================================================ 22. TEST
+============================================================
+
+TEST 01 — 기존 탐색 기존 접근 가능한 Test Region 선택 후 탐색. EXPECTED:
+기존 3D 탐색 정상.
+
+TEST 02 — 지도 배경 탐색 탭 진입. EXPECTED: Map Background Image 정상
+표시.
+
+TEST 03 — Normalized Marker 16:9 / 16:10 / 21:9 변경. EXPECTED: Marker가
+지도상의 의도된 위치 유지.
+
+TEST 04 — Hidden Hidden Region 존재. EXPECTED: 지도에 Marker/이름/빈
+슬롯 노출 없음.
+
+TEST 05 — Rumored Region을 Rumored로 변경. EXPECTED: ? Marker 표시 및
+제한된 정보 확인.
+
+TEST 06 — Discovered Region을 Discovered로 변경. EXPECTED: 실제
+지역명/기본 정보 표시.
+
+TEST 07 — Discovered but inaccessible EXPECTED: 정보 확인 가능, [탐색
+시작] 비활성, 접근 불가 이유 표시.
+
+TEST 08 — Accessible EXPECTED: [탐색 시작] 활성.
+
+TEST 09 — Region Scene [탐색 시작]. EXPECTED: 해당 Region Scene 진입.
+
+TEST 10 — Return [작업장 복귀]. EXPECTED: 작업장 정상 복귀.
+
+TEST 11 — Revisit 이미 방문한 Region 다시 선택. EXPECTED: 재탐색 가능.
+
+TEST 12 — Quest separation 지역 관련 Quest 완료. EXPECTED: Region 자체가
+삭제/폐쇄되지 않음.
+
+TEST 13 — Major Discovery hidden 미발견 Major Discovery 존재. EXPECTED:
+이름/개수 스포일러 없음.
+
+TEST 14 — QUEST 01 integration QUEST 01 완료 전. EXPECTED: 폐작업장
+Hidden.
+
+TEST 15 — QUEST 01 follow-up QUEST 01 완료 후 후속 Trigger. EXPECTED:
+폐작업장 Hidden → Rumored.
+
+TEST 16 — 폐작업장 정보 Rumored Marker 선택. EXPECTED: 박성철에게 얻은
+제한 정보만 표시.
+
+TEST 17 — No drill spoiler QUEST 02 이전. EXPECTED: 지도에서 탁상드릴
+존재를 직접 공개하지 않음.
+
+TEST 18 — Save/Load Rumored 폐작업장 Rumored 상태 저장 후 Load.
+EXPECTED: ? Marker와 정보 정상 복원.
+
+TEST 19 — Save/Load Discovered Discovered/Accessible 상태 저장 후 Load.
+EXPECTED: 상태 정상 복원.
+
+TEST 20 — Regression QUEST / Inventory / Machining / Measurement / Phase
+01 Exploration. EXPECTED: 기존 기능 회귀 없음.
+
+TEST 21 — Console 전체 흐름 실행. EXPECTED: Error 0.
+
+============================================================ 23. PASS
+============================================================
+
+-   탐색 탭이 지도 이미지 기반 UI로 동작.
+-   지역 마커가 이미지 위에 동적으로 표시.
+-   Marker 위치가 해상도에 안정적.
+-   Hidden/Rumored/Discovered 구분.
+-   Discovery와 Accessibility 분리.
+-   지역 정보 패널 동작.
+-   지역 재탐색 가능.
+-   Quest와 Region 상태 분리.
+-   Major Discovery가 일반 Loot와 분리.
+-   QUEST 01 완료 후 폐작업장 Rumored 상태 정상 생성.
+-   폐작업장 진입 가능.
+-   Save/Load 정상.
+-   기존 Phase 01 탐색 기능 유지.
+-   Console Error 0.
+
+============================================================ 24. FAIL
+============================================================
+
+-   지역 선택을 다시 단순 버튼 목록으로 구현.
+-   지도 이미지에 지역 이름/Quest 상태를 직접 그려 넣음.
+-   Marker 위치 Pixel 하드코딩으로 해상도에서 이탈.
+-   Hidden 지역이 UI에 노출.
+-   Rumored 상태에서 모든 정보를 공개.
+-   방문 전 탁상드릴 위치/존재를 스포일러.
+-   Quest 완료와 동시에 Region이 영구 폐쇄.
+-   지역 완료 상태와 Discovery State를 하나로 합침.
+-   접근 불가 지역의 정보조차 볼 수 없음.
+-   일반 Loot 수집률을 지도에 표시.
+-   기존 Exploration Scene Loader와 별도 중복 Loader 생성.
+-   기존 Quest/Save 시스템과 별도 중복 시스템 생성.
+-   QUEST 01 완료 Save를 불러왔는데 폐작업장 정보 소실.
+-   Console Error 발생.
+
+============================================================ 25. CODEX
+IMPLEMENTATION REPORT
+============================================================
+
+구현 완료 후 다음 형식으로 보고한다.
+
+1.  AUDIT 결과
+
+    -   기존 Exploration 관련 클래스/Scene/UI
+    -   기존 Region 데이터 구조
+    -   기존 Quest 연동 지점
+    -   기존 Save/Load 연동 지점
+
+2.  수정/추가 파일 목록
+
+3.  RegionDefinition 변경 내용
+
+4.  DiscoveryState / Accessibility 구조
+
+5.  Map Background / Marker Hierarchy
+
+6.  MapPositionNormalized 구현
+
+7.  RegionInfoPanel 구현
+
+8.  Known Information 구현
+
+9.  Quest / Region 분리 방식
+
+10. Major Discovery 기반 구조
+
+11. QUEST 01 → 폐작업장 Rumored Trigger
+
+12. Save/Load 변경
+
+13. EXTERNAL ART REQUIRED 항목
+
+    -   Exploration Map Background Image
+
+14. TEST 01~21 PASS/FAIL
+
+15. Console Error 수
+
+16. 남은 TODO
+
+    -   QUEST 02
+    -   탁상드릴 발견/회수/설치
+    -   실제 지도 최종 아트가 Placeholder인 경우 교체 필요
+
+============================================================ 26. PHASE
+07 완료 기준
+============================================================
+
+다음 흐름이 실제 Play Mode에서 동작하면 Phase 07 완료로 본다.
+
+QUEST 01 완료 → 후속 지역 정보 획득 → 탐색 탭 지도에 폐작업장 ? Marker
+등장 → Marker 선택 → 제한된 지역 정보 확인 → [탐색 시작] → 폐작업장 3D
+Exploration Scene 진입 → 작업장 복귀 → Save → Load → 폐작업장
+Rumored/Discovered 진행 상태 유지
+
+이 시점에서 다음 Story Phase에서 QUEST 02 및 탁상드릴 획득 진행을 구현할
+수 있다.

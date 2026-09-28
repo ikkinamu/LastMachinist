@@ -1,0 +1,301 @@
+LAST MACHINIST — VERTICAL SLICE PHASE 06
+
+TAILSTOCK / DRILLING / INTERNAL MACHINING / UI ACCESSIBILITY v0.1
+
+0. 목표
+
+외경 가공 중심인 현재 선반을 다음 단계로 확장한다.
+
+구현 범위: 1. 심압대(Tailstock) 2. 센터드릴 3. 드릴 4. 내경 바이트 및
+내경 가공 5. 가공 UI 접근성 개선
+
+핵심 흐름:
+공작물 장착 → 심압대 공구 선택 → 센터드릴 → 드릴 → Hole 생성 → 내경 바이트 → 내경 확대/정삭
+
+기존 외경 가공, Handwheel, Zero Set, 45° 모따기, 측정, Inventory, Quest
+시스템은 유지한다.
+
+1. BASELINE
+
+참조: - MVP v0.10 REVIEWED - PATCH_001~003 - Vertical Slice Phase 01~05
+
+유지 원칙: - Player-Facing UI 한국어 - TrueDimension / InstrumentReading
+/ RecordedMeasurement 분리 - 정답 치수 자동 공개 금지 - Orthographic 4
+View 유지 - Phase 04 WorkpieceInstance → Machining 연결 유지 - Phase 05
+반복 Quest는 이번 Phase 때문에 강제 변경하지 않음 - 기존 시스템을 중복
+구현하지 말고 먼저 AUDIT
+
+2. Inner Geometry Foundation
+
+현재 TurningProfile/Stock Geometry를 AUDIT한다.
+
+외경과 내경을 독립적으로 유지할 수 있는 구조를 추가한다.
+
+권장 개념: - OuterProfile - InnerProfile / HoleProfile - Feature data
+
+최소 Hole 데이터: - Diameter - Depth - Position - OperationHistory
+
+외경 가공 시 InnerProfile이 사라지면 안 된다. 내경 가공 시
+OuterProfile이 초기화되면 안 된다.
+
+두 형상이 비정상적으로 교차하는 경우 NaN, 뒤집힌 Mesh, 무한 Geometry가
+발생하지 않도록 Validation한다.
+
+3. 심압대
+
+Tailstock은 장식 Mesh가 아니라 실제 가공 시스템과 연결한다.
+
+최소 구조: - Tailstock Body - Quill - ToolHolder - MountedTool -
+AxialPosition - QuillExtension
+
+초기 장착 공구: - 센터드릴 - 드릴
+
+향후 Reamer/Center 등을 추가할 수 있는 구조는 허용하지만 이번
+Phase에서는 구현하지 않는다.
+
+심압대 공구 Visual과 실제 ToolType이 반드시 일치해야 한다.
+
+4. 센터드릴
+
+센터드릴은 공작물 회전축 중심에 Hole 가공의 시작 Feature를 만든다.
+
+필수: - CenterDrill 장착 - 공작물 중심축 정렬 - 기존 Spindle/Cutting
+State와 연결 - 실제 접촉/이송 시 Geometry 변경
+
+센터드릴 사용 후: - Hole/Center Feature 데이터 변경 - Visual Mesh 변경 -
+이후 Drill이 해당 위치를 사용할 수 있음
+
+Visual만 바뀌고 실제 Geometry가 그대로면 FAIL.
+
+5. 드릴
+
+Drill은 고정 Preset 방식으로 시작한다.
+
+최소 DrillDefinition: - ToolId - DisplayName - Diameter - ToolType -
+Visual
+
+드릴 가공 결과: - Hole Diameter - Hole Depth - Hole Position
+
+공작물 범위를 넘어 비정상적인 깊이로 가공되지 않도록 Clamp한다.
+
+센터드릴과 Drill은 별도 Operation으로 기록한다. 센터드릴 버튼 하나로
+전체 Hole이 자동 생성되면 안 된다.
+
+6. 내경 가공
+
+새 Tool Type: BoringTool
+
+Player-Facing: 내경 바이트
+
+핵심 규칙: Hole이 없는 Solid Workpiece 내부를 내경 바이트가 그대로
+절삭할 수 없다.
+
+정상 흐름: 센터드릴/드릴 → Hole 생성 → 내경 바이트 진입 → 내경 확대/정삭
+
+내경 가공 판정 최소 조건: - 기존 Hole 존재 - 공구가 Hole에 진입 가능한
+상태 - 실제 Tool 위치 - Spindle/Cutting State - 실제 절삭 접촉
+
+초기 지원: - 단순 원통 내경 - 내경 깊이 - 필요 시 단순 내부 단차
+
+이번 Phase 제외: - 내부 홈 - 테이퍼 내경 - 내부 나사
+
+7. 내경 측정 기반
+
+기존 측정 구조를 재사용한다.
+
+InnerProfile에서 TrueDimension을 조회할 수 있는 API/연결점을 만든다.
+
+내경 TrueDimension을 Player UI에 자동 공개하지 않는다.
+
+기존 측정기가 아직 내경 측정을 지원하지 않는다면 전체 측정기 시스템을
+억지로 새로 만들지 말고, Phase 06에서는 InnerProfile TrueDimension
+Query와 향후 측정 도구 연결 기반까지 구현한다.
+
+8. 가공 UI 접근성 개선
+
+기능 추가로 가공 UI가 복잡해지지 않도록 재정리한다.
+
+목표: - 현재 공구를 즉시 확인 - 외경/내경/심압대 접근 단계 감소 - 버튼
+위치/크기 일관화 - Handwheel 조작 영역 유지 - 불필요한 Modal Popup
+감소 - 16:9 / 16:10 / 21:9 대응
+
+권장 공구 분류: [외경 공구] [내경 공구] [심압대]
+
+외경: - 기존 황삭/정삭 - 모따기 등 현재 구현 공구
+
+내경: - 내경 바이트
+
+심압대: - 센터드릴 - 드릴
+
+정확한 UI 구조는 현재 Hierarchy를 AUDIT한 뒤 기존 UI를 최대한
+재사용한다.
+
+9. 현재 공구 표시
+
+가공 화면에서 현재 상태를 항상 확인 가능하게 한다.
+
+예: - 현재 공구: 외경 정삭 바이트 - 현재 공구: 내경 바이트 -
+심압대: Ø10 드릴
+
+표시: - 현재 공구 계열 - 현재 장착 공구 - 필요한 경우 Drill 직경 -
+심압대 활성 상태
+
+내부 Enum/Debug ID를 그대로 노출하지 않는다.
+
+10. Context UI
+
+선택한 가공 계열에 맞는 조작을 강조한다.
+
+외경/내경: - X/Z Handwheel 중심
+
+심압대: - Tailstock/Quill 관련 조작 강조
+
+단, Context가 바뀔 때 주요 버튼 위치가 크게 이동하지 않도록 한다. Muscle
+Memory를 깨는 UI 재배치 금지.
+
+11. 버튼 접근성
+
+최소: - 주요 Hit Area 확대 - 텍스트 잘림 없음 - Selected/Disabled 상태
+명확 - 버튼 간 충분한 간격 - UI Scale 변화 시 겹침 없음 - 아이콘만으로
+기능을 추측하게 하지 않음 - 필요 시 아이콘 + 한국어 Label
+
+12. 상태 피드백
+
+불가능한 조작을 아무 반응 없이 무시하지 않는다.
+
+예: - 먼저 심압대 공구를 장착하세요. -
+내경 바이트가 진입할 구멍이 없습니다. -
+현재 공구로는 이 영역을 가공할 수 없습니다.
+
+화면을 가리는 Modal보다 기존 Status/Toast 영역을 우선한다.
+
+13. 레이아웃 원칙
+
+기존 PATCH_003 원칙 유지.
+
+권장 역할: - 상단: 현재 가공 상태 / 현재 공구 / 카메라 - 측면: 공구 계열
+/ 공구 선택 - 기존 하단 영역: Handwheel / Zero Set / Tailstock 관련 조작
+
+현재 잘 동작하는 UI를 이유 없이 전면 재배치하지 않는다.
+
+14. Save / Load
+
+현재 WorkpieceInstance Geometry 저장 구조가 있다면: - OuterProfile -
+InnerProfile/HoleProfile - Hole Diameter - Hole Depth
+
+를 저장 가능하게 확장한다.
+
+Load 후 Hole/내경이 사라지면 안 된다.
+
+가공 중 Save를 현재 지원하지 않는다면 이번 Phase 때문에 별도 Save
+시스템을 만들지 않는다.
+
+15. OUT OF SCOPE
+
+-   나사 가공
+-   내부 나사
+-   내부 홈
+-   테이퍼 내경
+-   Reamer 실제 가공
+-   자동 이송
+-   CNC
+-   밀링
+-   실제 절삭력/온도 물리
+-   심압대 지지에 따른 진동/처짐 물리
+-   재료시험/NDT
+-   Phase 05 반복 Quest 강제 변경
+
+16. CODEX 구현 순서
+
+1.  기존 Lathe/Tool/Geometry/UI AUDIT
+2.  InnerProfile/Hole Geometry 기반
+3.  Tailstock/Quill/MountedTool
+4.  CenterDrill
+5.  Drill
+6.  BoringTool/Internal Cutting
+7.  Outer+Inner Mesh 갱신
+8.  Inner TrueDimension 연결
+9.  UI 공구 분류/현재 공구/버튼/상태 메시지 개선
+10. Save/Load 영향 반영
+11. 전체 회귀 테스트
+
+17. 필수 테스트
+
+TEST 01 — Tailstock 공구 선택 가능. TEST 02 — CenterDrill 장착 시
+Visual/ToolType 일치. TEST 03 — 센터드릴 실제 접촉 시 Hole Feature와
+Mesh 변경. TEST 04 — Drill 가공 시 선택 직경의 Hole 생성. TEST 05 — Hole
+Depth 데이터와 Visual 일치. TEST 06 — Hole 없는 Solid에 Boring 시 가공
+불가. TEST 07 — Hole 생성 후 Boring 가능. TEST 08 — 내경 확대 시
+OuterProfile 유지. TEST 09 — 외경 추가 가공 시 InnerProfile 유지. TEST
+10 — Geometry 경계에서 NaN/뒤집힌 Mesh 없음. TEST 11 — 공구 변경 시 현재
+공구 표시 즉시 갱신. TEST 12 — 불가능 조작 시 한국어 상태 메시지. TEST
+13 — 16:9 UI 겹침 없음. TEST 14 — 16:10 UI 겹침 없음. TEST 15 — 21:9 UI
+겹침 없음. TEST 16 — Phase 04 Inventory Workpiece에서 Hole/Internal 가공
+가능. TEST 17 — Phase 05 기존 반복 Quest 정상. TEST 18 — QUEST 01 정상.
+TEST 19 — Handwheel/Zero Set/Chamfer/Measurement/4 View 정상. TEST 20 —
+Console Error 0.
+
+18. PASS
+
+-   기능성 Tailstock
+-   CenterDrill이 실제 Geometry 변경
+-   Drill이 Hole Diameter/Depth 변경
+-   Solid에 Boring 직접 진입 불가
+-   Hole에 Boring 가능
+-   OuterProfile/InnerProfile 독립 유지
+-   Mesh/Data 일치
+-   Inner TrueDimension 조회 기반
+-   현재 공구 즉시 확인 가능
+-   외경/내경/심압대 공구 접근 개선
+-   불가능 조작에 한국어 피드백
+-   주요 해상도 UI 겹침 없음
+-   기존 시스템 회귀 없음
+-   Console Error 0
+
+19. FAIL
+
+-   Tailstock이 장식뿐임
+-   센터드릴/드릴이 Visual만 변경
+-   Hole 데이터와 Mesh 불일치
+-   BoringTool이 Solid 내부를 그대로 절삭
+-   내경 가공 시 외경 초기화
+-   외경 가공 시 Hole 삭제
+-   Tool Visual/실제 ToolType 불일치
+-   Handwheel 영역 가림
+-   공구 선택에 과도한 Popup/클릭 필요
+-   현재 공구를 화면에서 알 수 없음
+-   불가능 조작이 설명 없이 무시됨
+-   특정 해상도 UI 겹침
+-   기존 Quest/Inventory/측정 손상
+-   나사/CNC 등 범위 밖 기능 임의 구현
+
+20. CODEX 보고 형식
+
+[VERTICAL SLICE PHASE 06 RESULT]
+
+1.  Lathe/Geometry/Tool/UI AUDIT
+2.  Inner Geometry 구조
+3.  Tailstock/Quill
+4.  CenterDrill
+5.  Drill
+6.  BoringTool/Internal Cutting
+7.  Mesh/Visual
+8.  Measurement 연결
+9.  UI 접근성 변경
+10. Save/Load 영향
+11. TEST 01~20 PASS/FAIL
+12. 수정 파일 목록
+13. QUEST 01 + Phase 01~05 회귀 테스트
+14. 남은 문제
+
+21. 완료 정의
+
+기존 선반 화면에서 심압대를 사용하고, 센터드릴과 드릴로 실제 Hole
+Geometry를 생성한 뒤, 내경 바이트로 해당 Hole의 내경을 확대/정삭할 수
+있어야 한다.
+
+외경/내경 Geometry가 독립적으로 유지되고, 가공 UI에서 현재 공구와 공구
+계열을 쉽게 확인/선택할 수 있어야 한다.
+
+기존 Handwheel, Zero Set, Chamfer, Measurement, Inventory, Quest가
+유지되고 Console Error가 없으면 Phase 06 완료다.

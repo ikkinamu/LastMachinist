@@ -1,0 +1,210 @@
+LAST MACHINIST — VERTICAL SLICE PHASE 02
+
+ITEM INSPECTION & RECOVERY v0.1 — CODEX DEVELOPMENT SPEC
+
+0. 목표
+
+Phase 01의 탐색 기반을 유지하면서 다음 최소 루프를 구현한다.
+
+3D 탐색 → 화면 중앙으로 아이템 조준 → 마우스 좌클릭 → 아이템 특성 창 →
+[회수] 또는 [닫기]
+
+중요: 좌클릭은 즉시 획득이 아니다. Mouse Left Click = Inspect이며 실제
+회수는 특성 창의 [회수] 버튼으로만 실행한다.
+
+1. BASELINE
+
+기준: VERTICAL SLICE — PHASE 01 EXPLORATION FOUNDATION v0.1
+
+유지할 기능: - 탐색 탭 / 지도 / 지역 선택 - Exploration Scene 진입 -
+1인칭 3D 시점 - WASD / Mouse Look / Collision / Gravity - 좌클릭
+Interact 입력 기반 - 작업장 복귀 및 재진입 - 기존 MVP 및 PATCH_001~003
+기능
+
+2. Interaction Ray
+
+좌클릭 시 First Person Camera 화면 중앙 기준으로 Interaction Ray를
+발사한다.
+
+조건: - 제한된 Interaction Range 내부 - 조사 가능한 대상 - Collider
+존재 - 벽 뒤 대상은 감지하지 않음 - 빈 공간 및 거리 밖 대상은 아무 동작
+없음 - Range는 Inspector 또는 설정 데이터에서 조정 가능
+
+3. 아이템 특성 창
+
+조사 가능한 아이템을 좌클릭하면 한국어 특성 창을 연다.
+
+최소 구성: - 아이템 이름 - 동적 특성 정보 영역 - [회수] - [닫기]
+
+예시: 아이템 이름: 녹슨 금속 봉 외형: 원형 봉재 표면: 부식 흔적 있음
+마킹: 일부 확인 가능 크기: 육안상 중형
+
+예시는 테스트용이며 특정 재료 판정으로 하드코딩하지 않는다.
+
+4. 실제 데이터와 관찰 정보 분리
+
+아이템의 실제 내부 데이터와 플레이어에게 보여주는 관찰 정보를 분리한다.
+
+Internal Data 예: - ItemId - ActualMaterialType - ActualDimensions -
+RecoveryData
+
+Visible Inspection Data 예: - DisplayName - Appearance -
+SurfaceCondition - VisibleMarking - VisibleSizeDescription
+
+내부적으로 재질 정답을 알고 있더라도 Phase 02 특성 창이 재질: 강철처럼
+정답을 자동 공개하면 안 된다. 향후 재료 식별 시스템이 별도로 연결될 수
+있어야 한다.
+
+5. 재사용 가능한 조사 구조
+
+특정 아이템 하나에만 동작하는 코드를 만들지 않는다. 봉재, 판재, 기계
+부품, 공구, 장비 등으로 확장 가능한 공통 조사 구조를 사용한다.
+
+권장 개념: Interactable → InspectableItem
+
+단, 기존 프로젝트에 동등한 구조가 있으면 재사용하고 중복
+Manager/Interface를 만들지 않는다.
+
+최소 데이터 개념: - ItemId - DisplayName - InspectionProperties -
+CanRecover - RecoveryId 또는 향후 Inventory 연결용 ID
+
+InspectionProperties: - PropertyLabel - PropertyValue -
+VisibilityState(optional future extension)
+
+특성 개수가 아이템마다 달라도 동일 UI에서 정상 표시되어야 한다.
+
+6. 특성 창 Open 상태
+
+특성 창이 열리면: - 플레이어 이동 차단 - Mouse Look 차단 - Cursor 표시 -
+Cursor Lock 해제 - UI 버튼 입력 활성
+
+창을 닫으면: - 이동 복구 - Mouse Look 복구 - Cursor 숨김/잠금 복구 -
+탐색 상태 복귀
+
+특성 창이 열린 채 캐릭터가 계속 움직이거나 카메라가 회전하면 FAIL.
+
+7. [닫기]
+
+[닫기]: - 아이템 회수하지 않음 - 월드 오브젝트 변경 없음 - 특성 창만
+닫음 - 탐색 입력 복구 - 같은 아이템을 다시 좌클릭하면 재조사 가능
+
+8. [회수]
+
+[회수] 클릭 시에만: 1. 현재 조사 대상 확인 2. CanRecover 확인 3. Session
+Recovery List에 ItemId 기록 4. 월드 아이템 제거 또는 비활성 5. 특성 창
+닫기 6. 탐색 입력 복구
+
+Phase 02에서는 작업장 영구 인벤토리까지 구현하지 않는다. 이번 탐색
+Session에서 무엇을 회수했는지 기록하는 수준까지만 구현한다. 동일 아이템
+중복 회수를 방지한다.
+
+9. UI와 World Click 충돌 방지
+
+특성 창의 [회수] / [닫기]를 클릭할 때 뒤쪽 월드에 Interaction Ray가
+동시에 발사되면 안 된다. 현재 EventSystem/UI Input 구조를 AUDIT하고 UI
+클릭과 World Interaction을 분리한다.
+
+10. 테스트 아이템
+
+검증용 회수 가능 아이템 최소 2개를 배치한다. 두 아이템은 서로 다른 특성
+개수/내용을 가진다. 목적은 특성 창이 특정 아이템에 하드코딩되지 않았음을
+검증하는 것이다. Greybox/Test Mesh로 충분하다.
+
+11. OUT OF SCOPE
+
+이번 Phase에서는 구현하지 않는다: - 작업장 영구 인벤토리 - 완성형
+Inventory UI - 무게/슬롯 제한 - 재료 자동 판별 및 정답 공개 - 광택 기반
+실제 판별 - 마킹 해독 - 측정 도구 사용 - NPC / 적 / 전투 - 체력 /
+스태미나 - 컨테이너 루팅 - 차량 - 랜덤 아이템 생성 - 절차적 맵 - QUEST
+02 본편 - 고품질 아이템 아트
+
+12. CODEX 구현 순서
+
+STEP 1 — AUDIT Phase 01 Interact/Input/UI/EventSystem 구조 확인.
+
+STEP 2 — INTERACTION RAY Camera 중앙 Ray + Range + 대상 판별.
+
+STEP 3 — INSPECTABLE DATA 재사용 가능한 조사 아이템 데이터 구조.
+
+STEP 4 — PROPERTY WINDOW 동적 특성 목록을 표시하는 한국어 UI.
+
+STEP 5 — INPUT MODE 창 Open/Close에 따른 Movement, Mouse Look, Cursor
+전환.
+
+STEP 6 — RECOVER [회수] 버튼으로만 회수.
+
+STEP 7 — SESSION RECOVERY LIST 회수 ItemId 기록 및 중복 방지.
+
+STEP 8 — TEST ITEMS 서로 다른 특성을 가진 테스트 아이템 최소 2개.
+
+STEP 9 — UI/WORLD CLICK UI 클릭과 World Interaction 중복 실행 방지.
+
+STEP 10 — LOOP TEST 조사 → 닫기 → 재조사 → 회수 → 다른 아이템 조사 반복.
+
+13. 필수 테스트
+
+TEST 01: 아이템 조준 + 좌클릭 → 특성 창 표시, 아이템은 아직 월드에 존재.
+TEST 02: 빈 공간 좌클릭 → 아무 동작 없음. TEST 03: 거리 밖 아이템 → 조사
+불가. TEST 04: 벽 뒤 아이템 → 벽 관통 조사 불가. TEST 05: 특성 창 →
+올바른 DisplayName/InspectionProperties 표시. TEST 06: 창 Open 상태
+WASD/Mouse → 이동/Look 차단. TEST 07: [닫기] → 아이템 유지, 창 닫힘,
+탐색 입력 복구. TEST 08: 닫은 아이템 재조사 → 정상. TEST 09: [회수] →
+월드 제거/비활성 + Session List 기록 + 탐색 복구. TEST 10: 회수 완료
+대상 → 중복 회수 없음. TEST 11: 특성 개수가 다른 두 번째 아이템 → 동일
+UI 정상 표시. TEST 12: UI 버튼 클릭 → 뒤쪽 World Interaction 동시 실행
+없음. TEST 13: 작업장 복귀 및 기존 시스템 → 정상, Console Error 없음.
+
+14. PASS
+
+-   좌클릭으로 조사 가능
+-   좌클릭 자체로 즉시 회수되지 않음
+-   특성 창 정상 표시
+-   아이템마다 다른 특성 개수 지원
+-   실제 데이터와 관찰 정보 분리
+-   [닫기] 정상
+-   [회수] 정상
+-   Session Recovery List 기록
+-   중복 회수 방지
+-   UI Open 시 이동/Look 차단
+-   Close 후 입력 복구
+-   UI/World Click 충돌 없음
+-   Phase 01 및 기존 시스템 회귀 없음
+-   Console Error 없음
+
+15. FAIL
+
+-   좌클릭 즉시 획득
+-   특성 창에 실제 재료 정답 자동 공개
+-   아이템별 전용 UI 하드코딩
+-   특성 개수 변경 시 UI 파손
+-   벽 관통/무한 거리 조사
+-   창 Open 중 Player 이동/Look 가능
+-   UI 버튼과 World Interaction 동시 실행
+-   [닫기]가 아이템 제거
+-   동일 아이템 중복 회수
+-   Phase 01 또는 기존 가공/측정/Quest 기능 손상
+-   범위 밖 완성형 인벤토리/재료 판별 등을 임의 구현
+
+16. CODEX 구현 후 보고
+
+[VERTICAL SLICE PHASE 02 RESULT]
+
+1.  AUDIT 결과
+2.  Interaction Ray 방식/Range/대상 판별
+3.  Inspectable Item 데이터 구조
+4.  특성 창 UI 및 동적 Property 방식
+5.  회수/Session Recovery List/중복 방지
+6.  Cursor/Movement/Mouse Look/UI-World Click 처리
+7.  TEST 01~13 PASS/FAIL
+8.  수정 파일 목록 및 변경 요약
+9.  Phase 01 + 기존 시스템 회귀 테스트
+10. 남은 문제(없으면 없음)
+
+17. 완료 정의
+
+플레이어가 3D 탐색 중 아이템을 화면 중앙에 두고 좌클릭하여 특성 창을
+열고, 관찰 가능한 정보를 확인한 뒤 [닫기]로 돌아가거나 [회수]로 해당
+아이템을 Session Recovery List에 기록할 수 있으면 Phase 02 완료다.
+
+좌클릭만으로 아이템이 즉시 회수되지 않아야 하며, 회수 후에도 기존 탐색
+루프가 정상 동작해야 한다.

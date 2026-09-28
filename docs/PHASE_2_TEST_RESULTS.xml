@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="18" result="Passed" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.2778821">
+  <test-suite type="TestSuite" id="1000" name="LastMachinist" fullname="LastMachinist" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.277882" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1021" name="LastMachinist.Tests.Editor.dll" fullname="C:/Users/suinj/LastMachinist/Build/Phase2Validation/Library/ScriptAssemblies/LastMachinist.Tests.Editor.dll" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.258088" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="7708" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1022" name="LastMachinist" fullname="LastMachinist" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.256597" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1023" name="Tests" fullname="LastMachinist.Tests" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.255633" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="CoreDataTests" fullname="LastMachinist.Tests.CoreDataTests" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.127446" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1006" name="InvalidProfilesAndSaveDataAreRejected" fullname="LastMachinist.Tests.CoreDataTests.InvalidProfilesAndSaveDataAreRejected" methodname="InvalidProfilesAndSaveDataAreRejected" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="512117324" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.023880" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1003" name="InventoryAddsAndRemovesAtomically" fullname="LastMachinist.Tests.CoreDataTests.InventoryAddsAndRemovesAtomically" methodname="InventoryAddsAndRemovesAtomically" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="208060588" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.014245" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1005" name="JsonRoundTripPreservesRequiredState" fullname="LastMachinist.Tests.CoreDataTests.JsonRoundTripPreservesRequiredState" methodname="JsonRoundTripPreservesRequiredState" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="757020187" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.022689" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1007" name="SaveGraphContainsNoUnityObjectReferences" fullname="LastMachinist.Tests.CoreDataTests.SaveGraphContainsNoUnityObjectReferences" methodname="SaveGraphContainsNoUnityObjectReferences" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="392382635" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.002998" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1004" name="UniqueItemsKeepIndependentIdentity" fullname="LastMachinist.Tests.CoreDataTests.UniqueItemsKeepIndependentIdentity" methodname="UniqueItemsKeepIndependentIdentity" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="386386126" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.003518" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1002" name="WorkpieceRepresentsSteppedProfile" fullname="LastMachinist.Tests.CoreDataTests.WorkpieceRepresentsSteppedProfile" methodname="WorkpieceRepresentsSteppedProfile" classname="LastMachinist.Tests.CoreDataTests" runstate="Runnable" seed="1289498094" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.001460" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1008" name="LatheTests" fullname="LastMachinist.Tests.LatheTests" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.121440" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1011" name="CuttingSweepsAndCreatesPersistentStep" fullname="LastMachinist.Tests.LatheTests.CuttingSweepsAndCreatesPersistentStep" methodname="CuttingSweepsAndCreatesPersistentStep" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="132481669" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.032469" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1015" name="FinishedStateAndGripAreProtected" fullname="LastMachinist.Tests.LatheTests.FinishedStateAndGripAreProtected" methodname="FinishedStateAndGripAreProtected" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="1559758822" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.009089" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1017" name="InvalidInputDoesNotCorruptGeometry" fullname="LastMachinist.Tests.LatheTests.InvalidInputDoesNotCorruptGeometry" methodname="InvalidInputDoesNotCorruptGeometry" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="575633069" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.004933" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1019" name="MeshRefreshesFromProfileNotifications" fullname="LastMachinist.Tests.LatheTests.MeshRefreshesFromProfileNotifications" methodname="MeshRefreshesFromProfileNotifications" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="235030413" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.048865" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1013" name="MissingOrNoncuttingToolPreventsRemoval" fullname="LastMachinist.Tests.LatheTests.MissingOrNoncuttingToolPreventsRemoval" methodname="MissingOrNoncuttingToolPreventsRemoval" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="1100170294" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.000552" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1014" name="MissingWorkpieceAndPausedStatePreventCutting" fullname="LastMachinist.Tests.LatheTests.MissingWorkpieceAndPausedStatePreventCutting" methodname="MissingWorkpieceAndPausedStatePreventCutting" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="1579524151" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.001037" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1018" name="RemovalMergesIntervalsAndNeverAddsMaterial" fullname="LastMachinist.Tests.LatheTests.RemovalMergesIntervalsAndNeverAddsMaterial" methodname="RemovalMergesIntervalsAndNeverAddsMaterial" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="1668378245" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.000451" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1016" name="RouterInputsShareAxisAndScaleSemantics" fullname="LastMachinist.Tests.LatheTests.RouterInputsShareAxisAndScaleSemantics" methodname="RouterInputsShareAxisAndScaleSemantics" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="347724883" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.000651" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1009" name="SpindleOffContactOnlyPositions" fullname="LastMachinist.Tests.LatheTests.SpindleOffContactOnlyPositions" methodname="SpindleOffContactOnlyPositions" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="825349863" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.000362" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1010" name="SpindleOnWithoutContactDoesNotCut" fullname="LastMachinist.Tests.LatheTests.SpindleOnWithoutContactDoesNotCut" methodname="SpindleOnWithoutContactDoesNotCut" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="1107402708" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.000414" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1012" name="StartingSpindleAtContactCuts" fullname="LastMachinist.Tests.LatheTests.StartingSpindleAtContactCuts" methodname="StartingSpindleAtContactCuts" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="2026369073" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.001003" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1020" name="ToolCanOnlyBeChangedWithStoppedSpindle" fullname="LastMachinist.Tests.LatheTests.ToolCanOnlyBeChangedWithStoppedSpindle" methodname="ToolCanOnlyBeChangedWithStoppedSpindle" classname="LastMachinist.Tests.LatheTests" runstate="Runnable" seed="150959352" result="Passed" start-time="2026-09-12 04:52:54Z" end-time="2026-09-12 04:52:54Z" duration="0.001429" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[Saving results to: C:/Users/suinj/AppData/LocalLow/DefaultCompany/LastMachinist\TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

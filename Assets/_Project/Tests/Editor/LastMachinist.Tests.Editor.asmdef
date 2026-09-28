@@ -1,0 +1,8 @@
+{
+  "name": "LastMachinist.Tests.Editor",
+  "rootNamespace": "LastMachinist.Tests",
+  "references": ["LastMachinist.Runtime"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

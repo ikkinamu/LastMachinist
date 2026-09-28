@@ -1,0 +1,6700 @@
+LAST MACHINIST — MVP DEVELOPMENT SPEC v0.9
+작성 기준: 2026-09-14
+기준 문서: Last Machinist Master Spec v0.2
+목적: Unity + Codex 기반 MVP 구현용 개발 명세
+상태: MVP 최신 단일 구현 기준안 / v0.8 계승 + 첫 퀘스트 판정 완화 + Z축 실제 길이 측정 + 측정 UI 개선 + 복잡 형상 외부 에셋 우선 + 장비 선택 화면 추가
+
+============================================================
+0. 문서 목적
+
+============================================================
+v0.5 VERSION NOTICE
+============================================================
+
+본 파일은 v0.4 전체 내용을 계승한다.
+
+v0.5 신규 핵심 변경:
+- NPC Character Illustration 기반 표현 정책
+- 외부 이미지 Asset 교체 구조
+- Character Asset Binding / Naming
+- Sprite Import / Preserve Aspect
+- 1920×1080 Reference Resolution
+- Canvas Scaler / Anchor 기반 UI
+- 16:9 / 16:10 / 21:9 대응 원칙
+- 화면 선명도 Audit
+- Orthographic Projection 절대 요구사항 강화
+- Perspective Camera로 직교 화면을 흉내내는 구현 명시적 금지
+
+충돌 시 v0.5 신규 섹션을 우선한다.
+
+============================================================
+============================================================
+
+이 문서는 Last Machinist 전체 게임의 최종 명세가 아니다.
+
+Master Spec v0.2에 정의된 전체 방향 중,
+게임의 핵심 재미를 검증하기 위해 실제로 구현할 최소 수직 슬라이스(Vertical Slice)를 정의한다.
+
+MVP의 질문은 하나다.
+
+"고장난 부품을 관찰하고, 직접 측정하고, 원래 형상을 추론하고,
+직접 가공해서 실제 시설을 다시 움직이게 만드는 과정이 재미있는가?"
+
+MVP는 이 질문을 검증하는 데 필요하지 않은 기능을 의도적으로 제외한다.
+
+MVP 종료 조건:
+QUEST 01 「멈춰버린 펌프」를 처음부터 끝까지 플레이할 수 있고,
+플레이어가 직접 제작한 축을 설치하여 펌프가 다시 작동하는 장면까지 확인할 수 있다.
+
+
+
+
+============================================================
+0.1 v0.9 우선순위 및 통합 규칙
+============================================================
+
+이 문서는 MVP Development Spec v0.3의 전체 내용을 계승하고,
+다음 두 상세 명세를 본문에 정식 통합한 단일 구현 기준 문서다.
+
+- Measurement System Implementation Spec v1.0
+- Presentation / Environment / Scene Composition Spec v1.0
+
+따라서 Codex에 MVP를 구현/수정시킬 때 별도 문서 간 우선순위를 추측하게 하지 않는다.
+이 v0.9 파일 하나를 MVP의 현재 Source of Truth로 사용한다.
+
+충돌 시 우선순위:
+
+1. Section 104~111의 v0.9 신규/수정 규칙
+2. Section 97~103의 v0.8 신규/수정 규칙
+3. Section 89~95의 v0.7 신규/수정 규칙
+4. Section 78~88의 v0.6 신규/수정 규칙
+5. Section 64~77의 v0.5 신규/수정 규칙
+6. Section 60 측정 시스템 상세 구현 명세
+7. Section 61 화면 연출·환경·씬 구성 상세 구현 명세
+8. Section 48 가공 카메라 시스템 및 Section 61.6 Projection Requirements
+9. Section 40 이후의 상세 재정의
+10. 그보다 앞선 기존 MVP 설명
+
+즉, 앞부분의 요약/예전 구현 설명이 최신 상세 규칙과 충돌하면 최신 상세 규칙이 절대 우선한다.
+
+특히 다음 항목은 절대 규칙이다.
+- Player-Facing 기본 언어 = 한국어
+- 측정은 숫자 결과창이 아니라 실제 눈금 직접 판독형
+- TrueDimension / InstrumentReading / RecordedMeasurement 완전 분리
+- MeasurementPoint = 어디를 측정하는지 정의하는 지점
+- WorkMemo = 플레이어가 확보한 정보만 점진적으로 해금
+- DialoguePage = 화면 하단 약 30~35% 고정
+- QuestPopup / QuestTracker / QuestLogPage 역할 분리
+- 가공/측정 핵심 화면을 대형 Quest UI가 가리면 안 됨
+- Workshop/Farm/Pump를 빈 Primitive 수준으로 완료 처리하지 않음
+- Pump는 QUEST 01의 Hero Prop으로 식별 가능한 형태와 복구 전후 변화가 필요
+- 가공 Camera Projection 자체가 Orthographic이어야 함
+- Perspective Camera를 단순히 정면/평면 방향으로 돌린 것을 직교 View로 인정하지 않음
+- 정면/평면/우측면/등각투영 4개의 고정 View 사용
+- 자유 Orbit Camera 및 가공 중 Mouse Wheel Zoom 금지
+- Quest State별 허용/금지 행동을 실제 시스템에서 강제
+
+============================================================
+0.2 v0.7 통합 문서 사용법
+============================================================
+
+Codex는 이 파일을 처음부터 끝까지 기준 문서로 취급한다.
+하지만 실제 수정 작업은 기능/페이지/씬 단위로 나누어 수행한다.
+
+권장 방식:
+- 전체 문서 = 변경 불가 기준/계약
+- 이번 작업 지시 = 수정할 Page 또는 System 범위
+- 구현 전 = 현재 프로젝트 Audit
+- 구현 후 = 해당 Section의 PASS/FAIL 검증
+
+Codex가 문서가 길다는 이유로 최신 상세 Section을 생략하거나
+자의적으로 더 단순한 UI/측정/환경 구현으로 대체하면 안 된다.
+
+============================================================
+1. MVP 핵심 플레이 루프
+============================================================
+
+[DAY 1 / 작업장]
+→ 박성철과 기본 상호작용
+→ 이서연이 다급하게 찾아옴
+→ 농장 이동
+→ 펌프 고장 확인
+→ 박성철이 축 고장 진단
+→ 고장 축 회수
+→ 작업장 귀환
+→ 금속 자로 측정 시도
+→ 박성철에게 낡은 버니어 획득
+→ 고장 축 직접 측정
+→ L3 마모 확인
+→ 대칭 구조를 이용해 원래 형상 추론
+→ 외삼촌이 남긴 탄소강 원형봉 선택
+→ 범용선반 가공
+→ 공작물 재고정
+→ 최종 측정
+→ 검사표 기록
+→ 농장 귀환
+→ 박성철이 부품 설치
+→ 펌프 작동
+→ 물이 흐름
+→ 이서연 반응
+→ MVP END
+
+핵심 경험:
+
+관찰
+→ 측정
+→ 판단
+→ 가공
+→ 재측정
+→ 실제 세계 변화
+
+
+============================================================
+2. MVP 범위
+============================================================
+
+[반드시 구현]
+
+A. 장면/진행
+- 타이틀 또는 최소 시작 화면
+- DAY 1 시작
+- 작업장
+- 농장/펌프 현장
+- 최소한의 장소 전환
+- QUEST 01 진행
+- 펌프 복구 엔딩
+
+B. NPC
+- 박성철
+- 이서연
+- 주인공
+- 김영호는 직접 활동 NPC가 아니라 프롤로그/기록/대사에서만 사용 가능
+
+C. 가공
+- 범용선반 1대
+- 원형봉 Workpiece
+- 외경 선삭
+- 단차 가공
+- 모따기
+- 공작물 방향 변경/재고정
+- 가공 결과 수치 저장
+- 과가공 처리
+- 소재 소모
+
+D. 측정
+- 금속 자
+- 낡은 버니어 캘리퍼스
+- 버니어 본척/부척 시각화
+- 플레이어 직접 판독
+- 측정값 직접 입력
+- RecordedMeasurement 저장
+
+E. 첫 부품
+- 펌프 축
+- 전체 길이 100 mm
+- L1: Ø40 × 30 mm
+- L2: Ø50 × 40 mm
+- L3: Ø40 × 30 mm
+- 좌우대칭
+- 고장품의 L3 지름 및 길이 부분 마모
+
+F. 인벤토리/자원
+- 최소형 인벤토리
+- 기계구조용 탄소강 원형봉 3개
+- 고장 펌프 축
+- 금속 자
+- 낡은 버니어
+- 기본 바이트류
+
+G. 판정
+- 완성 부품의 기능적 장착 가능 여부
+- 치수가 조금 거칠어도 기능 범위 내라면 성공 가능
+- 너무 큰 경우 재가공 가능
+- 과가공으로 복구 불가한 경우 소재 손실 및 재시도
+
+H. 저장
+- 현재 Quest 단계
+- 소재 수량
+- 버니어 획득 여부
+- 현재 Workpiece
+- 완성 부품 여부
+- 최소한의 측정 기록
+
+
+============================================================
+3. MVP에서 구현하지 않는 것
+============================================================
+
+다음은 Master Spec에 존재하지만 MVP 구현 대상이 아니다.
+
+- 3D 탐색
+- 월드맵
+- 밀링
+- 드릴/리머/센터드릴 시스템
+- 차량 복구
+- 원거리 지역
+- 세력/약탈자
+- 전투
+- 도제/후계자
+- 마을 성장 전체 시스템
+- 마이크로미터
+- 고급 측정기
+- 본격 서적/매뉴얼 시스템
+- 복잡한 소재 식별
+- 다수 MaterialData
+- 기하공차
+- ISO 표면거칠기 판정
+- 고급 공구마모 시뮬레이션
+- 복잡한 계통/환경 오차
+- 절삭유 종류
+- 경제 시스템
+- 상점
+- 제작 레시피 시스템
+- 차량 인벤토리
+- NPC 스케줄
+- 낮/밤
+- 배고픔/갈증
+- 본격적인 도시건설
+- 온라인 기능
+- 멀티플레이
+
+주의:
+제외 기능을 위해 과도한 추상화를 미리 구현하지 않는다.
+다만 핵심 데이터 구조를 특정 공정/퀘스트에 하드코딩하여 향후 확장을 막지도 않는다.
+
+
+============================================================
+4. Unity 프로젝트 기준
+============================================================
+
+권장:
+- Unity LTS 계열
+- C#
+- 단일 플레이어
+- PC 우선
+- 키보드 + 마우스 우선
+
+MVP에서는 외부 서버가 필요하지 않다.
+모든 게임 데이터와 저장은 로컬에서 처리한다.
+
+씬 예시:
+
+Scenes/
+├─ Boot
+├─ Workshop
+├─ Farm
+└─ Lathe
+
+실제 구현에서는 Workshop 내부 UI에서 Lathe 모드로 전환하는 구조도 허용한다.
+중요한 것은 Scene 개수보다 시스템 간 결합도를 낮게 유지하는 것이다.
+
+
+============================================================
+5. 권장 폴더 구조
+============================================================
+
+Assets/
+├─ _Project/
+│  ├─ Scripts/
+│  │  ├─ Core/
+│  │  ├─ Dialogue/
+│  │  ├─ Quest/
+│  │  ├─ Inventory/
+│  │  ├─ Machining/
+│  │  │  ├─ Core/
+│  │  │  └─ Turning/
+│  │  ├─ Measurement/
+│  │  ├─ World/
+│  │  ├─ Save/
+│  │  └─ UI/
+│  ├─ Data/
+│  │  ├─ Items/
+│  │  ├─ Materials/
+│  │  ├─ Tools/
+│  │  ├─ Quests/
+│  │  └─ Dialogue/
+│  ├─ Prefabs/
+│  ├─ Scenes/
+│  ├─ Art/
+│  ├─ Audio/
+│  └─ Tests/
+
+Unity 기본 폴더와 외부 패키지는 _Project 외부에 둘 수 있다.
+
+
+============================================================
+6. 아키텍처 원칙
+============================================================
+
+1. Game State와 UI를 분리한다.
+2. Workpiece 계산 데이터와 화면 Mesh를 분리한다.
+3. Quest 진행 로직을 NPC MonoBehaviour 내부에 직접 하드코딩하지 않는다.
+4. Item 정의와 Item 보유 상태를 구분한다.
+5. Measurement의 실제값/기기표시값/플레이어기록값을 구분한다.
+6. 저장 가능한 데이터에 Unity Scene Object 직접 참조를 넣지 않는다.
+7. ScriptableObject는 정적 정의 데이터에 사용한다.
+8. 런타임 상태는 직렬화 가능한 순수 C# 데이터 중심으로 관리한다.
+9. Turning은 첫 공정일 뿐이므로 Workpiece/Quest/Save가 Turning 전용이 되지 않게 한다.
+10. MVP에 필요하지 않은 거대한 범용 프레임워크는 만들지 않는다.
+
+
+============================================================
+7. 핵심 데이터 모델
+============================================================
+
+[ItemDefinition]
+
+필드 예:
+- Id
+- DisplayName
+- Description
+- ItemType
+- Icon
+- Stackable
+- MaxStack
+
+ItemType 예:
+- Material
+- Workpiece
+- MeasurementTool
+- CuttingTool
+- QuestItem
+- Misc
+
+
+[InventoryEntry]
+
+- ItemId
+- Quantity
+- InstanceId(optional)
+- RuntimeState(optional)
+
+동일 정의라도 개별 상태가 필요한 공구/가공물은 Instance 기반으로 관리할 수 있다.
+
+
+[MaterialDefinition]
+
+MVP에서는 최소 하나:
+
+Id: structural_carbon_steel
+DisplayName: 기계구조용 탄소강
+
+필드:
+- Id
+- DisplayName
+- Density(optional)
+- MachiningDifficulty
+- Description
+
+
+[WorkpieceState]
+
+- InstanceId
+- MaterialId
+- GeometryType
+- GeometryData
+- ProcessHistory
+- IsFinished
+- SourceItemId
+
+GeometryType:
+- RoundProfile
+
+MVP에서 GeometryData는 TurningRoundProfile을 사용한다.
+
+
+============================================================
+8. Turning Geometry — Round Profile
+============================================================
+
+MVP의 선삭 공작물은 Z축 방향의 반경 프로파일로 계산한다.
+
+개념:
+
+Z 위치별 현재 Radius를 저장하거나,
+구간(segment) 기반 프로파일을 저장한다.
+
+권장 MVP 방식:
+구간 기반 + 필요 시 샘플링.
+
+TurningProfile:
+- TotalLength
+- Segments[]
+
+TurningSegment:
+- StartZ
+- EndZ
+- Radius
+
+표시 직경:
+Diameter = Radius × 2
+
+중요:
+내부 계산은 Radius를 사용할 수 있으나,
+플레이어 UI는 기계가공 도면/측정 맥락에 맞게 Diameter를 표시한다.
+
+가공:
+공구가 특정 Z 범위를 지나며 현재 Radius보다 안쪽으로 진입하면
+해당 영역의 Radius가 감소한다.
+
+절대 금지:
+- 재료를 다시 붙이는 것
+- 과가공 후 Undo 없이 원래 치수로 자동 복원
+
+Undo는 개발/디버그 기능으로만 둘 수 있으며 정식 플레이에는 제공하지 않는다.
+
+
+============================================================
+9. Visual Mesh
+============================================================
+
+TurningProfile을 기반으로 회전체 Mesh를 생성한다.
+
+목표:
+- 프로파일 변경 시 화면 형상 갱신
+- 지나치게 높은 폴리곤 불필요
+- 계산 정확도와 렌더링 세그먼트 수 분리
+
+필요 기능:
+- 원형봉 렌더링
+- 단차 표현
+- 모따기 표현
+- 회전 애니메이션
+- 가공 중 단순 칩/효과 가능
+
+MVP에서는 실제 물리 절삭 시뮬레이션을 구현하지 않는다.
+
+
+============================================================
+10. 선반 상태 머신
+============================================================
+
+LatheController는 최소한 다음 상태를 관리한다.
+
+Idle
+Setup
+Ready
+SpindleRunning
+Machining
+Measuring
+Reclamping
+Finished
+
+예:
+
+Idle
+→ Workpiece 장착
+→ Setup
+→ Tool 장착
+→ Ready
+→ Spindle ON
+→ SpindleRunning
+→ Tool 접촉
+→ Machining
+
+측정:
+SpindleRunning 상태에서는 정밀 측정을 허용하지 않는다.
+주축 정지 후 Measuring 진입.
+
+재고정:
+주축 정지
+→ Reclamping
+→ Workpiece 방향 반전
+→ 기준 좌표 갱신
+→ Ready
+
+
+============================================================
+11. MVP 선반 입력 시스템 — 확정
+============================================================
+
+핵심 철학:
+
+- 키보드 = 상태/기능 선택용 빠른 입력
+- 마우스 휠 = 선택된 축 핸들을 돌리는 빠른 PC 입력
+- 화면 UI = 마우스로 직접 조작 가능한 실제 게임 조작반
+- 추후 모바일 = 동일한 화면 UI를 터치로 조작
+
+즉, 키보드/마우스/UI/터치는 서로 다른 게임 로직을 호출하지 않는다.
+모든 입력은 동일한 Lathe Command 계층으로 들어간다.
+
+예:
+
+Keyboard
+Mouse Wheel
+UI Button / UI Dial
+Future Touch
+        ↓
+LatheInputRouter
+        ↓
+Lathe Commands
+        ↓
+LatheController / Domain Logic
+
+
+[11.1 축 선택]
+
+PC 단축 입력:
+- X 키 → X축 선택
+- Z 키 → Z축 선택
+
+마우스 휠은 현재 선택된 축을 이동시킨다.
+
+예:
+SelectAxis(Axis.X)
+SelectAxis(Axis.Z)
+
+화면에는 현재 선택 축을 항상 표시한다.
+
+예:
+AXIS: X
+또는
+AXIS: Z
+
+
+[11.2 이동 배율]
+
+세 단계 배율:
+
+- ×100
+- ×10
+- ×1
+
+키보드 예시:
+- 1 → ×1
+- 2 → ×10
+- 3 → ×100
+
+키 배치는 추후 변경 가능하며 Input System에서 리바인딩 가능하게 설계한다.
+
+중요:
+×100 / ×10 / ×1은 현실 공작기계의 특정 이송량을 그대로 의미하지 않는다.
+게임 조작용 상대 배율이다.
+
+내부 값 예:
+Fine
+Medium
+Coarse
+
+실제 이동량은 플레이테스트로 결정한다.
+
+
+[11.3 마우스 휠 입력]
+
+마우스 휠:
+- 현재 선택된 축의 Handwheel 입력
+- 휠 방향에 따라 + / - 이동
+
+예:
+
+Mouse Wheel Delta
+× CurrentMovementScale
+→ ApplyHandwheelDelta(CurrentAxis, delta)
+
+휠 한 칸의 실제 이동량은 게임 밸런스 값으로 관리한다.
+
+중요:
+마우스 휠은 공구 좌표를 직접 설정하지 않는다.
+반드시 Handwheel Command를 통해 이동한다.
+
+
+[11.4 화면 다이얼 직접 조작]
+
+화면에 X축 핸들과 Z축 핸들을 별도로 표시할 수 있다.
+
+- X 핸들을 마우스로 잡아 돌리면 X축 이동
+- Z 핸들을 마우스로 잡아 돌리면 Z축 이동
+
+직접 다이얼을 조작할 때는 별도의 "현재 선택 축"이 필요하지 않다.
+잡은 핸들의 축을 직접 사용한다.
+
+회전 계산 개념:
+
+Pointer Position
+→ Dial Center 기준 atan2
+→ 이전 각도와 현재 각도 차이
+→ Delta Angle
+→ Handwheel Delta
+→ 해당 축 이동
+
+각도는 -180/180 경계에서 튀지 않도록 DeltaAngle 방식으로 처리한다.
+
+다이얼 회전은 화면의 시각적 회전과 실제 이동량을 같은 Command로 연결한다.
+
+
+[11.5 모바일 확장]
+
+모바일에서는:
+- 키보드 단축키 없음
+- 마우스 휠 없음
+- 동일 UI 버튼/다이얼을 터치로 조작
+
+따라서 MVP부터 모든 핵심 기능은 반드시 화면 UI로도 실행 가능해야 한다.
+
+키보드는 필수 기능의 유일한 접근 방식이 되어서는 안 된다.
+
+
+[11.6 주축]
+
+주축 기능:
+- 회전 시작
+- 정지
+
+PC:
+- 단축키 제공
+
+UI:
+- 화면 버튼 제공
+
+둘 다 동일 Command 사용.
+
+예:
+SetSpindleRunning(true)
+SetSpindleRunning(false)
+
+MVP에서는 정/역회전의 복잡한 활용이 필요하지 않다면 한 방향 회전만 구현 가능하다.
+역회전은 향후 실제 게임 필요가 생겼을 때 확장한다.
+
+
+[11.7 공구 / 측정 / 재고정]
+
+다음 기능 역시:
+- 키보드 단축키
+- 화면 UI
+둘 다 제공할 수 있어야 한다.
+
+- 공구 선택
+- 측정 모드 진입
+- 재고정
+- 작업 종료
+
+단축키와 UI는 모두 같은 Command를 호출한다.
+
+
+[11.8 현재 상태 HUD]
+
+최소 표시:
+
+AXIS      X / Z
+SCALE     ×1 / ×10 / ×100
+SPINDLE   ON / OFF
+TOOL      현재 공구
+MODE      Machining / Measuring / Reclamping 등
+
+초기 낡은 선반에서는 공구의 절대 X/Z 좌표를 고정밀 숫자로 계속 노출하지 않는다.
+
+이유:
+실시간 고정밀 좌표 표시가 있으면 버니어 측정 시스템의 필요성이 약해진다.
+
+향후 위치 표시 장치(DRO 등)를 복구/장착하는 progression으로 확장 가능하다.
+
+
+[11.9 입력 충돌 방지]
+
+마우스 휠은 UI ScrollView, 카메라 Zoom 등과 충돌할 수 있다.
+
+따라서 Lathe Mode에서는 Input Context를 명확히 분리한다.
+
+예:
+
+GameplayContext
+DialogueContext
+LatheContext
+MeasurementContext
+UIContext
+
+LatheContext에서:
+- 마우스 휠 = Handwheel
+
+MeasurementContext에서:
+- 마우스 휠 = 측정기 조작 등에 사용 가능
+
+일반 UI Scroll 영역 위에서는 Handwheel 입력을 차단할 수 있다.
+
+카메라 Zoom에 마우스 휠을 동시에 사용하지 않는다.
+
+
+[11.10 Input Architecture]
+
+권장 클래스:
+
+LatheInputRouter
+- 키보드
+- 마우스 휠
+- UI
+에서 들어온 입력을 Lathe Command로 변환
+
+LatheCommandService 또는 LatheController 공개 Command:
+- SelectAxis(Axis axis)
+- SetMovementScale(MovementScale scale)
+- ApplyHandwheelDelta(Axis axis, float delta)
+- SetSpindleRunning(bool running)
+- SelectTool(string toolId)
+- EnterMeasurementMode()
+- RequestReclamp()
+- FinishMachining()
+
+UI 버튼이 LatheController 내부 상태를 직접 변경하지 않는다.
+반드시 Command 계층을 사용한다.
+
+
+[11.11 실제 절삭 발생 조건]
+
+공구 이동 = 항상 절삭이 아니다.
+
+절삭은 최소 다음 조건이 만족될 때만 발생한다.
+
+- Workpiece 장착
+- SpindleRunning
+- 절삭 가능한 Tool 장착
+- Tool과 Workpiece Geometry 접촉
+- 현재 Lathe State가 Machining 가능 상태
+
+그 외 이동은 단순 위치 이동이다.
+
+이를 통해:
+- 주축 정지 상태에서 공구 위치 조정
+- 측정 준비
+- 재고정 전 이동
+등을 구분한다.
+
+
+[11.12 X축 내부값과 UI 의미]
+
+Turning 계산은 Radius 기반으로 구현할 수 있다.
+
+그러나 플레이어에게 익숙한 가공/측정 정보는 Diameter 기준으로 제시한다.
+
+따라서:
+
+Internal X Geometry = Radius
+Displayed Diameter = Radius × 2
+
+입력 핸들의 실제 내부 이동량과
+화면에 표시되는 치수 의미를 혼동하지 않도록 변환 책임을 한 곳에 둔다.
+
+예:
+TurningCoordinateConverter
+
+MVP에서 정밀 DRO는 표시하지 않더라도
+평가/측정 시스템은 이 규칙을 일관되게 사용한다.
+
+
+[11.13 재고정과 입력 좌표]
+
+공작물을 뒤집어도 플레이어의 X/Z 조작 방향이 갑자기 뒤집힌 것처럼 느껴지지 않아야 한다.
+
+Workpiece Orientation:
+- Normal
+- Reversed
+
+재고정 시 Geometry 데이터 자체를 무작정 역순으로 파괴적으로 변환하기보다,
+Workpiece Local Coordinate ↔ Machine Coordinate 변환 계층을 둔다.
+
+Lathe Input은 Machine Coordinate 기준으로 일관되게 처리하고,
+Geometry 접근 시 Orientation을 반영한다.
+
+
+[11.14 입력 피드백]
+
+마우스 휠 또는 다이얼 조작 시:
+- 해당 핸들 시각적 회전
+- 작은 클릭/기계음
+- 선택 축 강조
+- 이동량에 따른 시각 피드백
+
+×100:
+큰 이동 감각
+
+×10:
+중간 이동 감각
+
+×1:
+미세 이동 감각
+
+배율 차이는 수치뿐 아니라 체감에서도 느껴져야 한다.
+
+
+============================================================
+12. MVP 공구
+============================================================
+
+최소 구현 공구:
+
+1. 황삭 바이트
+2. 모따기 바이트
+
+선택적으로 디버그용 공구를 별도 제공할 수 있으나 게임 데이터에는 노출하지 않는다.
+
+ToolDefinition:
+- Id
+- DisplayName
+- ToolType
+- RemovalCapability
+- BasePrecision
+- CanChamfer
+- Description
+
+MVP에서는 복잡한 공구 수명/날끝 형상 계산은 제외한다.
+
+다만 향후 ToolCondition을 붙일 수 있도록 Tool Instance 구조는 확장 가능하게 둔다.
+
+
+============================================================
+13. 공작물 재고정
+============================================================
+
+QUEST 01의 핵심 가공 경험 중 하나.
+
+목표 축은 중앙 Ø50을 남기고 양쪽 Ø40을 만드는 대칭 구조다.
+
+플레이어는 한 방향에서 접근 가능한 부분을 가공한 뒤,
+공작물을 방향 전환하여 다시 고정할 수 있다.
+
+Reclamp 동작:
+- 주축 정지 확인
+- 현재 Workpiece 분리
+- 프로파일 방향 반전 또는 좌표 Transform 적용
+- 기준점 재설정
+- 다시 장착
+
+데이터 자체를 파괴적으로 뒤집기보다,
+Workpiece orientation을 관리하는 방식을 우선 고려한다.
+
+예:
+Orientation = Normal / Reversed
+
+UI와 공구 좌표 변환에서 Orientation을 반영한다.
+
+
+============================================================
+14. 모따기
+============================================================
+
+MVP에서는 모따기를 정교한 CAD Feature 시스템으로 과도하게 만들지 않는다.
+
+필요:
+- 모따기 바이트 선택
+- 지정 가장자리에 간단한 Chamfer 생성
+- 프로파일에 경사 구간 반영
+- 최종 형상 판정에서 존재 여부 확인 가능
+
+ChamferFeature:
+- Position
+- Width
+- Angle(optional)
+- IsValid
+
+첫 펌프 축의 모따기 요구는 관대하게 설정한다.
+
+
+============================================================
+15. 측정 시스템 핵심
+============================================================
+
+절대 합치지 말 것:
+
+TrueDimension
+InstrumentReading
+RecordedMeasurement
+
+TrueDimension:
+현재 Workpiece Geometry에서 계산되는 실제 게임 내부 치수.
+
+InstrumentReading:
+측정기 특성이 반영되어 측정기 화면/눈금에 나타날 값.
+
+RecordedMeasurement:
+플레이어가 눈금을 보고 직접 입력한 값.
+
+MVP에서는 복잡한 측정 오차 모델을 생략할 수 있다.
+
+단:
+플레이어가 틀리게 읽어도 RecordedMeasurement를 자동 수정하지 않는다.
+
+
+============================================================
+16. 금속 자
+============================================================
+
+시작 아이템.
+
+용도:
+- 대략적인 길이 확인
+- 마킹/도면 작업의 분위기
+- 첫 측정기 progression 연출
+
+첫 펌프 축 분석 시 주인공이 금속 자를 정밀 측정에 사용하려 한다.
+
+박성철:
+"……뭘로 쟀나?"
+"……."
+"에헤이~."
+"그건 네 삼촌이 그런 데 쓰라고 남긴 게 아닐 텐데."
+
+이 이벤트 이후 버니어 획득.
+
+
+============================================================
+17. 버니어 캘리퍼스
+============================================================
+
+아이템:
+낡은 버니어 캘리퍼스
+
+획득:
+QUEST 01 분석 단계에서 박성철에게 받는다.
+
+필수 UI:
+- 본척
+- 부척
+- 측정 대상
+- 측정 위치 선택
+- 플레이어 입력 필드
+- 기록 버튼
+
+게임은 최종 숫자를 자동 표시하지 않는다.
+
+렌더링 시스템:
+
+입력:
+InstrumentReading
+
+출력:
+- 본척 위치
+- 부척 offset
+- 일치하는 눈금 상태
+
+플레이어는 이를 보고 값을 계산해 직접 입력한다.
+
+MVP에서는 하나의 고정된 버니어 사양으로 시작한다.
+정확한 눈금 디자인/최소눈금은 UI 구현 단계에서 별도 확정한다.
+
+
+============================================================
+18. Measurement Point
+============================================================
+
+아무 위치나 자유롭게 재는 완전한 물리 측정 시스템은 MVP에서 과도하다.
+
+MVP에서는 의미 있는 MeasurementPoint를 제공한다.
+
+예:
+PumpShaftBroken:
+
+- L1_Diameter
+- L1_Length
+- L2_Diameter
+- L2_Length
+- L3_Diameter
+- L3_Length
+- TotalLength(optional)
+
+각 MeasurementPoint:
+- Id
+- Type
+- GeometryReference
+- DisplayHint(optional)
+- CanMeasureWith[]
+
+플레이어가 측정 위치를 선택하면
+해당 실제 치수를 버니어 UI에 반영한다.
+
+향후 자유 측정 시스템으로 확장 가능하지만 MVP에서는 불필요하다.
+
+
+============================================================
+19. 고장 펌프 축 데이터
+============================================================
+
+정상 설계값:
+
+TotalLength = 100 mm
+
+L1:
+Length = 30 mm
+Diameter = 40 mm
+
+L2:
+Length = 40 mm
+Diameter = 50 mm
+
+L3:
+Length = 30 mm
+Diameter = 40 mm
+
+형상:
+좌우대칭 3단 축.
+
+고장품:
+- L1 정상에 가까움
+- L2 정상에 가까움
+- L3 직경 마모
+- L3 끝/길이 방향 마모
+
+중요:
+고장품에 정답 도면을 연결하지 않는다.
+
+고장품은 CurrentGeometry만 가진다.
+정상 TargetGeometry는 Quest 평가 데이터에 별도로 존재한다.
+
+플레이어는 CurrentGeometry를 측정하여 TargetGeometry를 추론해야 한다.
+
+L3 마모 수치는 밸런스/시각화 단계에서 확정한다.
+현재 문서에서는 임의의 마모 수치를 하드코딩하지 않는다.
+
+
+============================================================
+20. Target Part / 평가 데이터
+============================================================
+
+PartRequirement:
+- Id
+- RequiredGeometry
+- FunctionalTolerance
+- RequiredFeatures
+- OptionalFeatures
+
+PumpShaftRequirement:
+
+RequiredGeometry:
+- 30 mm 구간 Ø40
+- 40 mm 구간 Ø50
+- 30 mm 구간 Ø40
+- 전체 100 mm
+
+RequiredFeatures:
+- 기본 단차 형상
+- 필요한 가장자리 모따기
+
+MVP에서는 기하공차/표면거칠기 없음.
+
+FunctionalTolerance:
+첫 퀘스트는 넓게 설정하되 구체 수치는 플레이테스트에서 결정한다.
+
+판정 결과:
+Perfect
+Acceptable
+Reworkable
+Rejected
+
+Perfect:
+목표 형상에 매우 가까움.
+
+Acceptable:
+정밀하지 않아도 펌프에 장착되어 기능 가능.
+
+Reworkable:
+재료가 아직 남아 있어 추가 가공으로 수정 가능.
+
+Rejected:
+과가공 등으로 현재 공작물을 복구할 수 없음.
+
+
+============================================================
+21. QUEST 시스템
+============================================================
+
+Quest 진행은 enum/state 기반으로 명확하게 관리한다.
+
+QuestId:
+quest_pump_01
+
+예상 상태:
+
+NotStarted
+FarmerArrived
+GoingToFarm
+InspectingPump
+BrokenShaftFound
+ReturnedToWorkshop
+RulerAttempt
+VernierReceived
+InspectingBrokenShaft
+ShapeInferred
+MaterialSelected
+Machining
+FinalInspection
+ReadyToDeliver
+Installing
+Completed
+
+QuestState 변경 시:
+- Dialogue
+- 상호작용 가능 대상
+- UI 목표
+- Scene object 상태
+를 이벤트 기반으로 갱신한다.
+
+NPC Update()에서 Quest 상태를 매 프레임 검사하는 구조를 피한다.
+
+
+============================================================
+22. Dialogue 시스템
+============================================================
+
+MVP는 복잡한 대화 에디터가 필요하지 않다.
+
+필요 기능:
+- 화자 이름
+- 본문
+- 다음
+- 선택지
+- Quest 상태에 따른 대화 분기
+- 이벤트 호출
+
+DialogueNode:
+- Id
+- SpeakerId
+- Text
+- Choices[]
+- NextNodeId
+- EventId(optional)
+
+Choice:
+- Text
+- NextNodeId
+- EventId(optional)
+
+대사는 ScriptableObject 또는 JSON 등 데이터 기반으로 관리할 수 있다.
+
+코드 내부에 장문 대사를 직접 박아 넣지 않는다.
+
+
+============================================================
+23. DAY 1 시퀀스
+============================================================
+
+[1] 시작
+
+최소 프롤로그 또는 텍스트/이미지 연출.
+
+김영호와 책임 이전.
+
+며칠 뒤:
+
+LAST MACHINIST
+DAY 1
+삼촌의 작업장
+
+
+[2] 작업장
+
+박성철 등장.
+
+"어이, 자네. 결국 이곳을 맡기로 했나."
+"그런데 기본적인 가공법은 아나?"
+
+선택:
+- 기본 정도는 알고 있습니다.
+- 오래돼서 좀 가물가물합니다.
+- 잘 모릅니다.
+
+선택에 따라 도움말 양만 변경.
+게임 난이도/스탯을 변경하지 않는다.
+
+
+[3] 사건 발생
+
+이서연이 다급하게 등장.
+
+"성철 아저씨! 잠깐만 와봐요. 기계가 또 안 돌아가요!"
+
+박성철:
+"에헤이~. 첫날부터 일이 생겼구먼."
+"같이 가보지."
+
+
+[4] 농장
+
+펌프 조사.
+
+박성철이 고장 진단.
+
+"모터 문제는 아닌 것 같고…."
+"여기였군."
+"축이 못 쓰게 됐어."
+
+이서연:
+"고칠 수 있어요?"
+
+박성철:
+"고치는 것보다는 하나 새로 만드는 게 낫겠는데."
+
+이서연:
+"혹시 이거… 만들어줄 수 있어?"
+
+
+[5] 작업장 복귀
+
+고장 축 획득.
+
+플레이어가 금속 자 사용.
+
+박성철:
+"……뭘로 쟀나?"
+"……."
+"에헤이~."
+
+버니어 획득.
+
+
+[6] 고장품 분석
+
+L1/L2/L3 측정.
+
+L3 값이 비정상적.
+
+박성철 힌트:
+"마모된 걸 그대로 재서 새로 만들면,
+마모된 부품을 하나 더 만드는 셈 아닌가."
+
+플레이어가 대칭 구조를 파악.
+
+Target 형상 확정.
+
+
+[7] 소재 선택
+
+김영호가 남긴 기계구조용 탄소강 원형봉 3개 확인.
+
+작업노트 단서:
+"탄소강 봉재 3본 확보. 펌프 쪽 축 상태 좋지 않음. 조만간 손봐야 함."
+
+봉재 1개 사용.
+
+
+[8] 가공
+
+선반 진입.
+
+- 공작물 장착
+- 황삭 바이트
+- 첫 Ø40 구간
+- 중앙 Ø50 유지
+- 재고정
+- 반대 Ø40 구간
+- 모따기
+- 주축 정지
+
+
+[9] 최종 검사
+
+버니어 사용.
+플레이어가 직접 판독.
+검사표 입력.
+
+PartEvaluator가 실제 Geometry를 평가.
+
+Acceptable 이상:
+납품 가능.
+
+Reworkable:
+추가 가공 권장.
+
+Rejected:
+새 소재 필요.
+
+
+[10] 설치
+
+농장 이동.
+
+박성철이 설치.
+
+Acceptable:
+"음. 아주 예쁘게 나온 건 아니지만… 이 정도면 돌아가겠군."
+
+펌프 작동.
+물 흐름.
+
+이서연:
+"됐다……."
+"진짜 됐어."
+
+QUEST COMPLETE.
+
+
+[11] MVP 종료
+
+거점/농장에 최소한의 시각 변화.
+
+화면 예:
+QUEST COMPLETE — 멈춰버린 펌프
+
+이후:
+"MVP COMPLETE" 개발용 표시 가능.
+
+
+============================================================
+24. 인벤토리 MVP
+============================================================
+
+복잡한 그리드/무게 시스템 제외.
+
+필요:
+- 아이템 목록
+- 수량
+- 선택
+- 사용/장착
+- Quest Item 표시
+
+시작:
+- 기계구조용 탄소강 원형봉 ×3
+- 금속 자 ×1
+- 황삭 바이트
+- 모따기 바이트
+- 기본 교환공구
+
+Quest 진행:
+- 고장 펌프 축 획득
+- 낡은 버니어 획득
+
+봉재 사용:
+3 → 2
+
+실패 후 새 소재:
+2 → 1
+
+0개가 되면 MVP 소프트락 방지를 위해 개발 단계에서는
+재시작/체크포인트 복구 수단을 제공한다.
+
+정식 게임의 자원 부족 처리와 MVP 테스트 편의 기능을 구분한다.
+
+
+============================================================
+25. Save Data
+============================================================
+
+MVP SaveGameData 예:
+
+- SaveVersion
+- CurrentSceneId
+- QuestStates
+- Inventory
+- WorkpieceInstances
+- MeasurementRecords
+- Flags
+
+Flags 예:
+- HasReceivedVernier
+- PumpShaftInferred
+- PumpRepaired
+
+Workpiece 저장:
+- InstanceId
+- MaterialId
+- Geometry
+- Orientation
+- ProcessHistory
+- IsFinished
+
+JSON 저장 가능.
+
+저장 위치는 Unity persistentDataPath 사용을 고려한다.
+
+MVP에서는:
+- 1개 Save Slot
+- 수동 저장 또는 주요 체크포인트 자동 저장
+
+체크포인트 예:
+- DAY 1 시작
+- 버니어 획득
+- 가공 시작 전
+- 완성품 납품 전
+- Quest 완료
+
+
+============================================================
+26. 이벤트 시스템
+============================================================
+
+시스템 간 직접 참조를 줄이기 위해 간단한 이벤트 구조를 사용한다.
+
+예:
+QuestStateChanged
+ItemAdded
+ItemRemoved
+WorkpieceChanged
+MeasurementRecorded
+PartEvaluated
+PumpRepaired
+
+과도한 글로벌 EventBus는 피한다.
+
+작은 프로젝트에서는:
+- C# event
+- 명확한 서비스 참조
+- ScriptableObject Event Channel
+중 하나를 일관되게 선택한다.
+
+
+============================================================
+27. UI 화면 목록
+============================================================
+
+1. Main / Start
+2. Dialogue UI
+3. Quest Objective UI
+4. Inventory UI
+5. Workshop Interaction UI
+6. Lathe HUD
+7. Tool Selection UI
+8. Reclamp UI
+9. Measurement Tool Selection
+10. Vernier Reading UI
+11. Inspection Sheet
+12. Part Evaluation Result
+13. Quest Complete
+
+Lathe HUD 최소 정보:
+- 주축 ON/OFF
+- 선택 공구
+- X/Z 위치 또는 게임화된 이동 상태
+- Workpiece
+- 현재 모드
+
+측정 UI:
+- 측정 위치
+- 확대된 버니어
+- 숫자 입력
+- 기록
+
+불필요한 수치를 한 화면에 과도하게 표시하지 않는다.
+
+
+============================================================
+28. 펌프 복구 World State
+============================================================
+
+PumpController:
+
+BeforeRepair:
+- 정지
+- 물 없음
+- 이서연 불안 상태
+
+AfterRepair:
+- 회전/작동 애니메이션
+- 물 효과
+- 작동음
+- 이서연 안도 대사
+- Quest Completed
+
+저장 플래그:
+PumpRepaired = true
+
+씬 재진입 시 해당 플래그를 읽어 상태 복원.
+
+MVP에서도 "부품을 만들었더니 실제 세계가 바뀐다"는 결과는 반드시 눈에 보여야 한다.
+
+
+============================================================
+29. 오디오/피드백 최소 요구
+============================================================
+
+필수 또는 강력 권장:
+
+선반:
+- 주축 시작/정지음
+- 회전음
+- 절삭 접촉음
+- UI 피드백
+
+측정:
+- 버니어 슬라이드/클릭 계열 피드백
+
+펌프:
+- 고장 전 정적/불완전한 상태
+- 복구 후 작동음
+- 물 흐르는 소리
+
+가공:
+- Tool이 소재와 접촉했음을 시각/청각적으로 명확하게 전달
+
+MVP는 그래픽 완성도보다 피드백 명확성이 우선이다.
+
+
+============================================================
+30. Placeholder Art 정책
+============================================================
+
+MVP 개발 초기에는 Placeholder 허용.
+
+허용:
+- 단색/기본 Sprite
+- Primitive Mesh
+- 임시 NPC 초상
+- 임시 아이콘
+- 기본 UI
+
+단, 다음은 프로토타입이라도 알아볼 수 있어야 한다.
+- Workpiece 형상
+- 버니어 눈금
+- 측정 위치
+- 펌프의 작동/정지 차이
+- NPC 구분
+
+Art 교체가 코드 수정으로 이어지지 않도록 Prefab/Data 중심으로 구성한다.
+
+
+============================================================
+31. 디버그 도구
+============================================================
+
+Codex 구현 시 반드시 최소 디버그 기능을 둔다.
+
+Debug Panel:
+- Quest State 변경
+- 아이템 추가
+- 봉재 수량 복구
+- 버니어 강제 획득
+- Workpiece 초기화
+- PumpRepaired ON/OFF
+- 현재 Geometry 값 표시
+- Save 삭제
+
+개발 빌드 또는 Editor에서만 노출.
+
+특히 선반/측정 시스템은 매번 DAY 1 처음부터 플레이하지 않고 바로 테스트할 수 있어야 한다.
+
+
+============================================================
+32. 테스트 항목
+============================================================
+
+[Quest]
+- 정상 순서로 완료 가능
+- Scene 이동 후 상태 유지
+- 버니어 획득 전 측정 제한
+- Quest 완료 후 재시작되지 않음
+
+[Inventory]
+- 봉재 사용 시 정확히 감소
+- 실패 후 새 봉재 사용 가능
+- Quest Item 유지
+
+[Turning]
+- 공구 이동
+- 재료 제거
+- 과가공
+- 프로파일 저장
+- Orientation 변경
+- 재고정 후 반대편 가공
+- 모따기
+
+[Measurement]
+- Geometry와 눈금 일치
+- 플레이어 입력값 별도 저장
+- 틀린 입력을 자동 수정하지 않음
+- L3 마모값이 정상 설계값과 다름
+
+[Evaluation]
+- Acceptable 부품 성공
+- 큰 부품 Reworkable
+- 심한 과가공 Rejected
+- 실제 Geometry로 판정하고 RecordedMeasurement를 정답으로 사용하지 않음
+
+[Save]
+- Quest 상태
+- 인벤토리
+- Workpiece
+- 버니어
+- PumpRepaired
+복원 확인.
+
+
+============================================================
+34. MVP 구현 전 누락 방지 체크리스트
+============================================================
+
+다음 항목은 개발 시작 전에 반드시 명시되어 있어야 한다.
+
+[입력]
+- 축 선택 X/Z
+- 이동 배율 ×1/×10/×100
+- 마우스 휠 Handwheel
+- X/Z 화면 다이얼 직접 조작
+- 주축 ON/OFF
+- 공구 선택
+- 측정
+- 재고정
+- 입력 Context 충돌 방지
+- 모든 핵심 조작의 UI 대응
+
+[좌표]
+- Turning 내부 Radius
+- UI/측정 Diameter
+- Machine Coordinate
+- Workpiece Local Coordinate
+- Reversed Orientation 변환
+
+[가공]
+- 주축이 꺼져 있으면 절삭 불가
+- 접촉하지 않으면 절삭 불가
+- 현재 공구가 절삭 가능한지 확인
+- 과가공은 자동 복구하지 않음
+- 공작물 방향 전환 후 반대편 접근 가능
+
+[측정]
+- 측정 중 주축 정지 필요
+- TrueDimension / InstrumentReading / RecordedMeasurement 분리
+- MeasurementPoint 선택
+- 잘못 입력한 기록 자동 수정 금지
+
+[UI]
+- 현재 Axis
+- 현재 Scale
+- Spindle 상태
+- Tool
+- Mode
+- Handwheel 시각 회전
+- 모바일에서도 누를 수 있는 크기의 핵심 UI 구조 고려
+
+[Quest]
+- 버니어 획득 전/후 상호작용 차이
+- 펌프 축 원형 추론 전/후 진행 제한
+- 소재 소모
+- Rework / Reject
+- 완료 후 PumpRepaired 유지
+
+[테스트 편의]
+- 선반 단독 진입
+- Quest State 강제 변경
+- Workpiece 초기화
+- 재료 복구
+- 각 판정 상태 생성
+- Save 삭제
+
+위 항목 중 하나라도 실제 코드에 정의되지 않았다면,
+후반 시스템 추가보다 먼저 해당 누락을 해결한다.
+
+
+============================================================
+34. Codex 구현 단계
+============================================================
+
+한 번에 전체 게임을 생성하도록 요청하지 않는다.
+
+PHASE 0 — 프로젝트 뼈대
+- 폴더
+- Assembly/namespace 정책
+- GameBootstrap
+- 기본 Scene
+- 데이터 정의
+
+완료 조건:
+빈 프로젝트가 오류 없이 실행.
+
+
+PHASE 1 — Core Data
+- Item
+- Inventory
+- Material
+- Workpiece
+- TurningProfile
+- Save DTO
+
+완료 조건:
+코드 테스트로 Workpiece 생성/직렬화 가능.
+
+
+PHASE 2 — Turning Prototype
+- LatheController
+- Tool movement
+- Radius removal
+- Visual mesh
+- spindle state
+
+완료 조건:
+원형봉을 실제로 깎아 단차를 만들 수 있음.
+
+
+PHASE 3 — Reclamp + Chamfer
+- Orientation
+- Reclamp
+- 반대편 가공
+- Chamfer
+
+완료 조건:
+Ø40 / Ø50 / Ø40 형태를 만들 수 있음.
+
+
+PHASE 4 — Measurement
+- MeasurementPoint
+- Vernier model
+- 눈금 렌더링
+- 직접 입력
+- MeasurementRecord
+
+완료 조건:
+공작물 치수를 버니어 눈금으로 읽고 기록 가능.
+
+
+PHASE 5 — Part Evaluation
+- Pump shaft requirement
+- Functional evaluation
+- Perfect/Acceptable/Reworkable/Rejected
+
+완료 조건:
+여러 형상의 테스트 Workpiece가 올바른 판정 결과를 냄.
+
+
+PHASE 6 — Quest / Dialogue
+- Quest state
+- Dialogue
+- 박성철
+- 이서연
+- 장소 이동
+- Ruler → Vernier 이벤트
+
+완료 조건:
+가공 없이도 Quest 흐름을 끝까지 진행 가능.
+
+
+PHASE 7 — Integration
+- 고장 축
+- 측정/추론
+- 소재 사용
+- 선반
+- 최종 검사
+- 납품
+- Pump repair
+
+완료 조건:
+QUEST 01 처음부터 끝까지 플레이 가능.
+
+
+PHASE 8 — Save / Polish
+- Save
+- checkpoint
+- audio
+- feedback
+- placeholder art 개선
+- debug tools
+
+완료 조건:
+게임 재실행 후 진행 유지 및 MVP 완주 가능.
+
+
+============================================================
+35. Codex 작업 규칙
+============================================================
+
+Codex에게 매 Phase마다 다음을 요구한다.
+
+1. 기존 파일을 먼저 읽고 현재 구조를 파악할 것.
+2. 기존 공개 API를 불필요하게 깨지 말 것.
+3. 변경 파일 목록을 먼저 계획할 것.
+4. 구현 후 컴파일 오류 가능성을 자체 검토할 것.
+5. 신규 클래스 책임을 한 문장으로 설명할 수 있어야 한다.
+6. MonoBehaviour에 데이터/도메인 로직을 과도하게 몰아넣지 말 것.
+7. Inspector에서 설정할 값과 런타임 값을 명확히 구분할 것.
+8. 문자열 ID를 여기저기 직접 입력하지 말고 중앙 정의/데이터를 사용할 것.
+9. 테스트 가능한 순수 C# 로직은 MonoBehaviour에서 분리할 것.
+10. TODO로 핵심 기능을 비워둔 채 완료했다고 하지 말 것.
+11. Placeholder가 필요한 경우 명확히 표시할 것.
+12. 범위를 넘어 Master Spec의 후반 시스템을 임의로 구현하지 말 것.
+
+
+============================================================
+36. MVP 성공 기준
+============================================================
+
+기술적 성공:
+
+- Unity에서 오류 없이 실행된다.
+- QUEST 01을 처음부터 끝까지 진행할 수 있다.
+- 선반에서 실제 Workpiece Geometry가 변경된다.
+- 공작물 재고정 후 반대쪽 가공이 가능하다.
+- 버니어 눈금을 직접 읽을 수 있다.
+- 플레이어 입력 측정값이 별도로 기록된다.
+- 완성품이 실제 Geometry 기준으로 평가된다.
+- 소재 실패/재시도가 가능하다.
+- Save/Load가 핵심 상태를 보존한다.
+- 펌프가 실제로 복구 상태로 변한다.
+
+게임적 성공:
+
+플레이어가 다음 흐름을 이해한다.
+
+"왜 이 부품이 필요한가"
+→ "어디가 망가졌는가"
+→ "원래 어떻게 생겼는가"
+→ "어떻게 만들어야 하는가"
+→ "내가 제대로 만들었는가"
+→ "내가 만든 것이 어디에 쓰였는가"
+
+그리고 마지막에:
+
+"내가 깎은 축 때문에 펌프가 다시 돌아갔다."
+
+라는 인과관계를 명확하게 느낄 수 있어야 한다.
+
+
+============================================================
+37. MVP 이후 첫 확장 순서
+============================================================
+
+MVP 검증 후 바로 모든 시스템을 추가하지 않는다.
+
+권장 순서:
+
+1. 선반 조작/가공 재미 개선
+2. 측정 UI 개선
+3. QUEST 02
+   - 센터드릴
+   - 드릴
+   - 절삭유
+   - HoleFeature
+4. 첫 3D 근거리 탐색
+5. 소재 관찰/식별
+6. 범용밀링 발견
+7. 밀링 복구
+8. 기본 밀링
+9. 선반+밀링 복합가공
+10. 마이크로미터/정삭
+11. 거점 성장 확장
+12. 차량 프로젝트
+
+MVP 결과가 좋지 않을 경우,
+후반 콘텐츠를 추가하기 전에 핵심 가공/측정/보상 루프부터 수정한다.
+
+
+============================================================
+38. 구현 시 절대 지킬 MVP 원칙
+============================================================
+
+1. MVP 종료점은 첫 펌프 복구다.
+2. MVP에 3D 탐색을 넣지 않는다.
+3. 첫 소재는 외삼촌이 남긴 탄소강 원형봉 3개다.
+4. 첫 정밀 측정기는 박성철에게 받는 낡은 버니어다.
+5. 버니어는 숫자를 자동 표시하지 않는다.
+6. 고장 축에 정식 도면을 제공하지 않는다.
+7. L3 마모를 통해 플레이어가 원형을 추론하게 한다.
+8. 정상 축은 100 mm / Ø40×30 / Ø50×40 / Ø40×30이다.
+9. 첫 의뢰는 엄격한 정밀가공 시험으로 만들지 않는다.
+10. 가공 결과는 실제 Geometry로 평가한다.
+11. RecordedMeasurement와 실제 Geometry를 혼동하지 않는다.
+12. 실패는 가능하지만 MVP가 쉽게 소프트락되지 않게 한다.
+13. 제작 성공은 반드시 펌프의 실제 작동으로 보상한다.
+14. 후반 시스템을 MVP 코드에 억지로 구현하지 않는다.
+15. 동시에 향후 다공정 확장을 막는 하드코딩도 피한다.
+16. 실제 위험한 공작기계 조작 훈련기가 아니라 게임용 추상화로 유지한다.
+
+
+============================================================
+39. MVP 한 줄 정의
+============================================================
+
+Last Machinist MVP는
+
+"마모된 펌프 축을 직접 관찰하고,
+버니어로 읽고,
+원래 형상을 추론하고,
+선반에서 새 축을 만들어,
+멈춘 펌프를 다시 돌리는 게임"
+
+이어야 한다.
+
+
+
+
+
+============================================================
+40. Player-Facing 언어 정책 — 한국어 강제
+============================================================
+
+[CRITICAL]
+Last Machinist MVP에서 플레이어에게 보이는 기본 언어는 한국어다.
+
+코드 내부 식별자, 클래스명, enum, field, method, asset id는 영어 사용을 허용하며 권장한다.
+그러나 코드 내부 문자열을 그대로 사용자 UI에 노출해서는 안 된다.
+
+반드시 한국어여야 하는 Player-Facing 요소:
+- 메인 메뉴
+- 저장/불러오기 화면
+- 버튼
+- HUD
+- 선반 조작 UI
+- 측정 UI
+- 인벤토리
+- 아이템 이름/설명
+- 퀘스트 이름/목표
+- NPC 이름/대사
+- 시스템 메시지
+- 오류/경고 메시지
+- 검사표
+- 가공 결과
+- 튜토리얼
+- 카메라 뷰 이름
+- 상호작용 안내
+- 완료/실패 메시지
+
+표시 예시:
+Start -> 시작
+Continue -> 이어하기
+Inventory -> 인벤토리
+Quest -> 의뢰
+Measure -> 측정
+Measurement Record -> 측정 기록
+Spindle -> 주축
+Spindle Start -> 주축 회전
+Spindle Stop -> 주축 정지
+Tool -> 공구
+Reclamp -> 재고정
+Front -> 정면
+Top -> 평면
+Right -> 우측면
+Isometric -> 등각투영
+Quest Complete -> 의뢰 완료
+Back -> 돌아가기
+Confirm -> 확인
+Cancel -> 취소
+
+코드 예:
+PumpShaftQuest
+LatheController
+MeasurementRecord
+SpindleRunning
+FrontView
+
+화면 예:
+'PumpShaftQuest'를 그대로 표시하지 않는다.
+표시 문자열은 '멈춰버린 펌프'를 사용한다.
+
+개발용 Debug Panel은 영어 또는 내부값을 표시해도 된다.
+단, Editor/Development Build에서만 보이게 한다.
+
+[PASS]
+- 모든 일반 플레이 화면이 한국어다.
+- ItemDefinition.DisplayName이 한국어다.
+- Quest Objective가 한국어다.
+- Lathe HUD가 한국어다.
+
+[FAIL]
+- 화면에 'Spindle', 'Measurement', 'Inventory', 'Quest Complete'가 그대로 보인다.
+- enum 이름을 ToString()으로 그대로 Player UI에 출력한다.
+- 영어 Placeholder를 남겨두고 '나중에 번역 가능'만 해둔다.
+
+
+============================================================
+41. 측정 시스템 재정의 — 실제 눈금 판독형
+============================================================
+
+[CRITICAL]
+측정은 숫자 확인 UI가 아니다.
+플레이어가 실제로 버니어 캘리퍼스의 본척/부척 눈금을 보고 값을 읽는 플레이여야 한다.
+
+정상 흐름:
+
+측정 위치 선택
+-> Workpiece Geometry에서 TrueDimension 계산
+-> 측정기 특성을 거쳐 InstrumentReading 결정
+-> 버니어 죠가 해당 치수에 맞게 벌어짐
+-> 본척/부척 눈금이 InstrumentReading에 맞게 배치됨
+-> 플레이어는 숫자 정답 없이 눈금만 봄
+-> 빈 입력칸에 직접 숫자 입력
+-> RecordedMeasurement 저장
+
+절대 합치지 말 것:
+TrueDimension
+InstrumentReading
+RecordedMeasurement
+
+TrueDimension:
+현재 Workpiece Geometry가 실제로 가진 게임 내부 치수.
+
+InstrumentReading:
+현재 측정기에서 플레이어가 읽을 수 있도록 눈금에 반영되는 값.
+MVP에서는 고급 오차 모델을 생략하여 TrueDimension과 같을 수 있다.
+단, 데이터 구조상 분리한다.
+
+RecordedMeasurement:
+플레이어가 눈금을 보고 직접 입력한 값.
+잘못 읽어도 그 값을 그대로 저장한다.
+
+예:
+TrueDimension = 39.80
+InstrumentReading = 39.80
+플레이어 입력 = 39.30
+RecordedMeasurement = 39.30
+
+이때:
+- Workpiece 실제 치수는 39.80 그대로다.
+- 39.30으로 Geometry를 수정하지 않는다.
+- 즉시 '틀렸습니다'를 표시하지 않는다.
+- 정답 39.80을 즉시 공개하지 않는다.
+
+[일반 플레이 UI에서 절대 금지]
+- '측정값: 39.80 mm' 자동 표시
+- '정답: 39.80 mm' 표시
+- 측정 버튼 클릭만으로 입력칸 자동 채움
+- RecordedMeasurement 자동 교정
+- TrueDimension 디버그 텍스트 상시 노출
+
+TrueDimension과 InstrumentReading은 Editor/Development Debug Panel에서만 직접 확인 가능하다.
+
+
+============================================================
+42. MeasurementPoint 의미 재정의
+============================================================
+
+MeasurementPoint는 '정답 숫자를 반환하는 버튼'이 아니다.
+
+MeasurementPoint는:
+'버니어를 공작물의 어느 위치에 대는가'를 선택하는 데이터다.
+
+PumpShaftBroken 예:
+- L1_Diameter
+- L1_Length
+- L2_Diameter
+- L2_Length
+- L3_Diameter
+- L3_Length
+- TotalLength(optional)
+
+플레이어가 L1_Diameter를 선택하면:
+1. 해당 GeometryReference를 찾는다.
+2. 현재 고장품 Geometry에서 실제 L1 직경을 계산한다.
+3. 결과를 InstrumentReading으로 전달한다.
+4. VernierView의 jaw 위치와 본척/부척 눈금을 갱신한다.
+5. 숫자 정답은 표시하지 않는다.
+
+MeasurementPoint.DisplayHint는 위치 설명용이다.
+예:
+'L1 외경'
+'중앙 단차 외경'
+'마모된 우측 구간 외경'
+
+DisplayHint에 실제 치수 정답을 포함하지 않는다.
+
+
+============================================================
+43. VernierView 구현 요구
+============================================================
+
+VernierView는 장식 이미지가 아니라 InstrumentReading을 시각화하는 기능 UI다.
+
+필수 구성:
+- 고정 본척
+- 이동 부척
+- 측정 죠
+- 본척 눈금
+- 부척 눈금
+- 선택된 측정 위치의 시각적 연결
+
+입력:
+- InstrumentReading
+- VernierSpecification
+
+출력:
+- Jaw opening
+- Main scale offset
+- Vernier scale offset
+- 일치하는 눈금의 실제 시각 정렬
+
+MVP에서 하나의 고정 버니어 사양을 사용한다.
+실제 위험한 기계 조작 훈련 수치를 다루지 않는다.
+이 시스템은 측정 눈금 읽기 게임플레이만 담당한다.
+
+중요:
+눈금 그래픽은 확대했을 때 실제로 읽을 수 있어야 한다.
+버니어를 너무 작게 그려 판독이 불가능하면 구현 실패다.
+
+
+============================================================
+44. 측정 페이지 구현 흐름
+============================================================
+
+MeasurementPage 목적:
+현재 공작물의 특정 위치를 측정하고, 플레이어가 읽은 값을 직접 기록한다.
+
+상단:
+- 제목: '측정'
+- 대상 이름: 예) '마모된 펌프 축'
+
+좌측 또는 상단 보조 영역:
+- 측정 위치 목록
+- 현재 선택 위치 강조
+
+중앙:
+- VernierView
+- 확대된 본척/부척
+
+하단 또는 우측:
+- '읽은 값 입력'
+- 빈 숫자 입력 필드
+- 단위 mm
+- [기록]
+- [다시 측정]
+- [돌아가기]
+
+행동:
+측정 위치 선택
+-> VernierView 갱신
+-> 입력필드는 자동 채우지 않음
+-> 플레이어 직접 입력
+-> 기록 버튼
+-> MeasurementRecord 생성
+
+MeasurementRecord 예:
+- WorkpieceInstanceId
+- MeasurementPointId
+- ToolId
+- RecordedValue
+- Timestamp(optional)
+
+InstrumentReading은 플레이어 기록 데이터로 자동 복사하지 않는다.
+
+
+============================================================
+45. 측정 시스템 PASS / FAIL 테스트
+============================================================
+
+TEST A
+개발자 코드에서 테스트 Workpiece 직경을 37.60으로 설정한다.
+
+[PASS]
+- 버니어 죠가 37.60에 해당하는 위치까지 이동한다.
+- 본척/부척 눈금이 37.60을 읽을 수 있는 배열을 만든다.
+- 입력칸은 비어 있다.
+- 플레이어가 눈금을 보고 직접 37.60을 입력할 수 있다.
+
+[FAIL]
+- 화면에 '37.60 mm'가 숫자로 자동 표시된다.
+- 측정 위치를 누르는 순간 37.60이 입력칸에 들어간다.
+
+TEST B
+플레이어가 37.60을 37.10으로 잘못 입력한다.
+
+[PASS]
+- RecordedMeasurement = 37.10
+- TrueDimension = 37.60 유지
+- 정답 즉시 공개 없음
+
+[FAIL]
+- 자동으로 37.60으로 수정됨
+- '오답' 팝업과 함께 실제 치수 노출
+
+TEST C
+Release/Normal Play UI를 검사한다.
+
+[PASS]
+- TrueDimension/InstrumentReading 내부 숫자 디버그 표시 없음
+
+[FAIL]
+- 'True Diameter: 37.60' 같은 디버그 텍스트가 보임
+
+
+============================================================
+46. MVP UI / PAGE 전체 구조
+============================================================
+
+Codex는 아래 Page/Panel을 이름과 역할이 명확한 독립 UI 단위로 구현한다.
+MVP 범위를 키우지 않기 위해 각 Page는 최소 기능으로 구현 가능하다.
+
+01. MainMenuPage
+목적: 게임 시작
+표시: LAST MACHINIST, 시작, 이어하기(세이브 존재 시), 설정, 종료(PC)
+기본 언어: 한국어
+
+02. SaveSelectPage
+MVP는 1개 슬롯만 사용하므로 매우 단순화 가능.
+표시: 저장 데이터 존재 여부, 이어하기, 새 게임.
+
+03. GameplayHUD
+표시: 현재 의뢰 목표, 상호작용 가능한 대상 힌트.
+가공 중에는 Lathe HUD로 전환.
+
+04. InteractionPrompt
+예: '[E] 박성철과 대화'
+예: '[E] 선반 사용'
+키보드 외 클릭 가능한 대응 UI도 제공 가능.
+
+05. DialoguePage
+화자 이름, 본문, 다음.
+Player movement 잠금 여부를 DialogueSequence에서 지정.
+
+06. ChoicePanel
+대화 선택지.
+DAY 1 가공 경험 질문에서 사용.
+
+07. QuestPopup
+새 의뢰 수락/갱신/완료 알림.
+예: '새 의뢰 — 멈춰버린 펌프'
+
+08. QuestLogPage
+MVP에서는 현재 메인 의뢰 1개만 표시해도 됨.
+목표/진행상태를 한국어로 표시.
+
+09. InventoryPage
+아이템 목록, 수량, 선택.
+
+10. ItemDetailPanel
+아이템 이름, 설명, 상태, 사용 가능 여부.
+
+11. WorkMemoPage
+관찰/측정/추론으로 확인된 정보만 점진적으로 표시.
+정답 사전 공개 금지.
+
+12. LathePage
+선반 가공 모드 전체 화면.
+
+13. LatheControlPanel
+축 선택, 배율, 주축, 측정, 재고정, 종료, 카메라 뷰 버튼.
+
+14. ToolSelectPanel
+황삭 바이트, 모따기 바이트 선택.
+
+15. MeasurementPage
+측정 작업 전체 화면/패널.
+
+16. VernierView
+본척/부척 실제 판독 영역.
+
+17. MeasurementInputPanel
+빈 입력칸, 단위, 기록 버튼.
+
+18. MeasurementRecordPage / InspectionSheet
+플레이어가 직접 기록한 값 목록.
+실제값/정답은 표시하지 않음.
+
+19. WorkpieceInspectionPage
+고장품 또는 완성품을 관찰.
+측정 위치 진입점 제공 가능.
+
+20. ResultPage
+PartEvaluator 결과를 게임적으로 보여줌.
+Perfect/Acceptable/Reworkable/Rejected를 한국어 표시로 변환.
+예: 매우 양호 / 사용 가능 / 재가공 필요 / 사용 불가
+내부 enum 이름 그대로 출력 금지.
+
+21. PausePage
+계속, 저장, 설정, 메인 메뉴.
+
+22. SettingsPage
+MVP 최소: 음량, 기본 표시 설정.
+언어 선택 기능은 필수가 아니며 기본 언어는 한국어 고정 가능.
+
+
+============================================================
+47. PAGE 전환 규칙
+============================================================
+
+일반 흐름:
+MainMenuPage
+-> 새 게임
+-> DAY 1 Title
+-> Workshop Gameplay
+
+작업장:
+Workshop Gameplay
+-> 선반 상호작용
+-> LathePage
+
+가공 중:
+LathePage
+-> [측정]
+-> MeasurementPage
+-> [돌아가기]
+-> LathePage
+
+가공 종료:
+LathePage
+-> [작업 종료]
+-> ResultPage 또는 FinalInspection 단계
+-> Workshop Gameplay
+
+고장품 분석:
+Workshop Gameplay
+-> WorkpieceInspectionPage
+-> MeasurementPage
+-> MeasurementRecordPage / WorkMemoPage
+-> Workshop Gameplay
+
+Quest State가 허용하지 않는 Page로 임의 진입할 수 없게 한다.
+
+예:
+VernierReceived 이전:
+MeasurementPage의 버니어 사용 진입 금지.
+
+ShapeInferred 이전:
+새 봉재를 사용해 실제 펌프 축 제작 시작 금지.
+
+Machining 이전:
+FinalInspection 진입 금지.
+
+
+============================================================
+48. 가공 카메라 시스템 — 4개 고정 View
+============================================================
+
+가공 화면은 자유 카메라를 사용하지 않는다.
+MVP에서는 다음 4개의 고정 Orthographic View를 제공한다.
+
+1. FrontView = 정면
+2. TopView = 평면
+3. RightView = 우측면
+4. IsometricView = 등각투영
+
+[Projection Requirements — 절대 규칙]
+
+이 4개 View는 카메라의 위치/회전만 고정하는 것이 아니다.
+Unity Camera의 Projection 자체가 Orthographic이어야 한다.
+
+필수:
+- Camera.orthographic = true 또는 동등한 Orthographic Projection 사용
+- 화면 깊이에 따른 원근 축소가 없어야 함
+- 동일한 크기의 형상은 화면 깊이 차이만으로 더 작거나 크게 보이면 안 됨
+- Front / Top / Right / Isometric 모두 Orthographic Projection을 유지
+- View 전환은 Orthographic Camera Pose와 Size를 전환하는 방식으로 구현
+
+절대 금지:
+- Perspective Camera를 정면으로 돌려놓고 FrontView라고 부르기
+- Perspective Camera를 위에서 내려다보게 하고 TopView라고 부르기
+- Isometric처럼 보이도록 Perspective FOV만 줄여서 대체하기
+- View마다 Orthographic/Perspective가 섞이기
+
+이 규칙의 목적은 공작물의 형상과 단차를 원근 왜곡 없이 읽게 하는 것이다.
+
+Turning 기본 View:
+FrontView
+
+향후 Milling 기본 View:
+TopView 또는 IsometricView를 공정 데이터에서 지정 가능.
+
+Turning과 향후 Milling은 동일 CameraView 시스템을 공유할 수 있다.
+단, MVP에서 Milling 자체는 구현하지 않는다.
+
+필수 조작:
+- 키보드 단축키
+- 화면 UI 버튼
+
+둘 다 동일 CameraViewCommand를 사용한다.
+
+예:
+SetCameraView(CameraView.Front)
+SetCameraView(CameraView.Top)
+SetCameraView(CameraView.Right)
+SetCameraView(CameraView.Isometric)
+
+UI 표시:
+[정면] [평면] [우측면] [등각투영]
+
+중요:
+- 자유 회전 카메라 없음
+- 마우스 드래그로 카메라를 임의 회전하지 않음
+- 마우스 휠 Zoom 금지
+- 마우스 휠은 LatheContext에서 Handwheel 전용
+- View를 바꿔도 LatheControlPanel 위치/사용성이 크게 바뀌지 않음
+- 공구와 공작물은 모든 View에서 알아볼 수 있어야 함
+
+미래 모바일:
+동일한 4개 UI 버튼을 터치로 사용.
+
+
+============================================================
+49. WorkMemoPage — 정보 해금형 작업 메모
+============================================================
+
+WorkMemoPage는 정답지를 보여주는 화면이 아니다.
+플레이어가 실제로 확인한 정보만 기록한다.
+
+초기:
+펌프 축
+도면 없음
+
+관찰 후:
+- 원형 축
+- 중앙에 굵은 단차
+- 좌우 형상이 비슷해 보임
+- 우측 끝 구간에 심한 마모 흔적
+
+L1 측정/기록 후:
+- L1 외경: 플레이어 기록값
+- L1 길이: 플레이어 기록값
+
+L2 측정/기록 후:
+- L2 외경: 플레이어 기록값
+- L2 길이: 플레이어 기록값
+
+L3 측정 후:
+- L3 측정값은 반대쪽과 일치하지 않음
+- 마모 상태 표시
+
+중요:
+WorkMemo에 자동으로 '정답 Ø40'을 쓰지 않는다.
+플레이어가 잘못 읽은 경우 기록값도 잘못될 수 있다.
+
+ShapeInferred 이벤트가 발생한 뒤에는:
+'원래 형상 추정' 섹션을 활성화할 수 있다.
+
+최종 추론 예:
+- 전체 길이: 100 mm
+- 좌측: Ø40 × 30 mm
+- 중앙: Ø50 × 40 mm
+- 우측: Ø40 × 30 mm
+- 우측 구간은 마모되어 현재 측정값을 그대로 원래 치수로 사용하면 안 됨
+
+이 최종 추론은 Quest 로직에서 확정되는 TargetGeometry와 연결되지만,
+그 전에는 TargetGeometry를 Player UI에 직접 노출하지 않는다.
+
+추천 플래그:
+- ObservedSymmetry
+- ObservedL3Wear
+- MeasuredL1Diameter
+- MeasuredL1Length
+- MeasuredL2Diameter
+- MeasuredL2Length
+- MeasuredL3
+- OriginalShapeInferred
+
+
+============================================================
+50. QUEST 01 상태별 구현 명세
+============================================================
+
+QuestId: quest_pump_01
+DisplayName: 멈춰버린 펌프
+
+공통 원칙:
+Quest State는 단순 텍스트가 아니라 실제 접근 가능 행동과 UI를 제어한다.
+NPC MonoBehaviour Update에서 매 프레임 상태를 직접 검사하지 않는다.
+State Enter/Exit 이벤트 또는 명확한 Quest service를 사용한다.
+
+
+[State 0 — NotStarted]
+장소: Workshop
+NPC: 박성철 존재
+이서연: 아직 등장하지 않음
+허용: 이동, 박성철 대화
+금지: Farm 진행, Pump Quest 관련 측정/가공
+진입: DAY 1 시작
+완료 조건: 박성철 Intro Dialogue 완료
+다음: FarmerArrived
+
+
+[State 1 — FarmerArrived]
+Trigger: 박성철 Intro 종료
+NPC: 이서연이 작업장에 등장/진입 연출
+Player Control: 등장 대사 동안 잠시 제한 가능
+Dialogue: DAY1_SEOYEON_ARRIVAL
+대사 예:
+이서연: '성철 아저씨! 잠깐만 와봐요. 기계가 또 안 돌아가요!'
+박성철: '에헤이~. 첫날부터 일이 생겼구먼.'
+박성철: '같이 가보지.'
+완료 조건: 대화 종료
+다음: GoingToFarm
+
+
+[State 2 — GoingToFarm]
+UI 목표: '서연의 농장으로 이동하기'
+허용: Farm 이동 상호작용
+완료 조건: Farm Scene 진입
+다음: InspectingPump
+
+
+[State 3 — InspectingPump]
+장소: Farm
+NPC 위치:
+- 이서연: 펌프 근처
+- 박성철: 펌프 점검 위치
+Player Control: 조사/대화 가능
+Dialogue ID: DAY1_PUMP_DIAGNOSIS
+대사:
+박성철: '모터 문제는 아닌 것 같고….'
+박성철: '여기였군.'
+박성철: '축이 못 쓰게 됐어.'
+이서연: '고칠 수 있어요?'
+박성철: '고치는 것보다는 하나 새로 만드는 게 낫겠는데.'
+이서연: '혹시 이거… 만들어줄 수 있어?'
+QuestPopup: '새 의뢰 — 멈춰버린 펌프'
+완료 조건: 진단 Dialogue 완료
+다음: BrokenShaftFound
+
+
+[State 4 — BrokenShaftFound]
+Side Effect:
+- 인벤토리에 '마모된 펌프 축' 추가
+- WorkpieceInspectionPage에서 고장축 관찰 가능
+표시 정보:
+도면: 없음
+재질: 미확인/추론 필요
+관찰: 좌우 대칭으로 보이는 원형 축, 중앙 굵은 단차, 한쪽 끝 심한 마모
+허용: 고장축 보기
+완료 조건: 작업장 복귀 상호작용
+다음: ReturnedToWorkshop
+
+
+[State 5 — ReturnedToWorkshop]
+장소: Workshop
+목표: '고장난 축을 확인해보자.'
+버니어: 아직 없음
+허용: 고장축 검사, 금속 자 사용
+금지: 정밀 버니어 측정, 새 축 제작
+완료 조건: 금속 자 사용 시도
+다음: RulerAttempt
+
+
+[State 6 — RulerAttempt]
+Trigger: 고장축에 금속 자를 사용
+Dialogue ID: DAY1_RULER_ATTEMPT
+박성철:
+'……뭘로 쟀나?'
+'…….'
+'에헤이~.'
+'그건 네 삼촌이 그런 데 쓰라고 남긴 게 아닐 텐데.'
+완료 조건: Dialogue 종료
+Side Effect 준비: 버니어 지급 이벤트
+다음: VernierReceived
+
+
+[State 7 — VernierReceived]
+Side Effect:
+- '낡은 버니어 캘리퍼스' 인벤토리 추가
+- 알림: '[낡은 버니어 캘리퍼스를 획득했습니다.]'
+Dialogue ID: DAY1_VERNIER_TUTORIAL
+박성철:
+'여기가 본척이고, 이쪽 움직이는 게 부척이야.'
+'본척에서 먼저 값을 읽고, 부척 눈금 중 본척 눈금과 맞는 곳을 찾게.'
+중요:
+숫자 정답을 대신 읽어주지 않는다.
+완료 조건: MeasurementPage 첫 진입 가능 상태 활성화
+다음: InspectingBrokenShaft
+
+
+[State 8 — InspectingBrokenShaft]
+허용:
+- WorkpieceInspectionPage
+- MeasurementPage
+- MeasurementPoint 변경
+- 버니어 눈금 판독
+- RecordedMeasurement 기록
+- MeasurementRecordPage
+- WorkMemoPage
+- InventoryPage
+
+금지:
+- 새 탄소강 봉재로 실제 제작 시작
+- 펌프 축 완성 판정
+- Farm 납품
+
+필수 진행 조건 예:
+- L1 직경 측정/기록
+- L1 길이 측정/기록
+- L2 직경 측정/기록
+- L2 길이 측정/기록
+- L3의 직경 또는 길이 중 최소 하나 이상 측정
+- L3 마모 관찰 플래그
+
+힌트 Dialogue 조건:
+L3 측정 후 플레이어가 정상 설계로 간주하려는 흐름에서
+박성철:
+'마모된 걸 그대로 재서 새로 만들면, 마모된 부품을 하나 더 만드는 셈 아닌가.'
+
+완료 조건:
+대칭 구조와 L3 마모를 이용한 추론 이벤트 충족
+다음: ShapeInferred
+
+
+[State 9 — ShapeInferred]
+Side Effect:
+- WorkMemo '원래 형상 추정' 해금
+- 추정 Target: 100 / Ø40×30 / Ø50×40 / Ø40×30
+- 작업노트 단서 확인 가능
+김영호 메모:
+'탄소강 봉재 3본 확보. 펌프 쪽 축 상태 좋지 않음. 조만간 손봐야 함.'
+
+허용:
+- 탄소강 봉재 선택
+- 선반 준비
+
+완료 조건: 봉재 1개 선택/사용
+다음: MaterialSelected
+
+
+[State 10 — MaterialSelected]
+Side Effect:
+- 탄소강 봉재 수량 3 -> 2
+- 신규 WorkpieceInstance 생성
+- 가공 시작 전 Checkpoint 저장
+허용: LathePage 진입
+완료 조건: 선반에 공작물 장착
+다음: Machining
+
+
+[State 11 — Machining]
+장소/모드: LathePage
+허용:
+- X/Z 조작
+- ×1/×10/×100
+- Mouse Wheel Handwheel
+- X/Z 화면 다이얼
+- 주축 ON/OFF
+- 황삭 바이트/모따기 바이트 선택
+- 4개 Camera View
+- 주축 정지 후 MeasurementPage
+- 재고정
+- WorkMemo 확인
+
+필수 경험:
+- 첫 Ø40 구간 생성
+- 중앙 Ø50 유지
+- 재고정
+- 반대 Ø40 구간 생성
+- 필요한 모따기
+
+완료 요청 시 PartEvaluator 또는 FinalInspection 단계로 이동
+다음: FinalInspection
+
+
+[State 12 — FinalInspection]
+허용:
+- 완성품 MeasurementPage
+- MeasurementRecordPage / InspectionSheet
+- WorkMemo
+- ResultPage
+
+평가 기준:
+실제 Workpiece Geometry
+RecordedMeasurement를 정답으로 사용하지 않음
+
+결과:
+Acceptable 이상 -> ReadyToDeliver
+Reworkable -> Machining으로 복귀 가능
+Rejected -> 새 소재 필요
+
+Rejected에서 소재가 남아 있으면:
+새 봉재 사용 -> MaterialSelected 또는 Machining 준비 단계
+
+MVP 소프트락 방지:
+봉재 0개면 개발/튜토리얼용 체크포인트 복구 수단 제공
+
+
+[State 13 — ReadyToDeliver]
+목표: '완성한 펌프 축을 서연의 농장으로 가져가자.'
+허용: Farm 이동
+완료 조건: Farm 진입 + 설치 Dialogue 시작
+다음: Installing
+
+
+[State 14 — Installing]
+Player Control: 설치 연출 중 잠시 제한 가능
+박성철이 부품 설치
+Acceptable 예:
+'음. 아주 예쁘게 나온 건 아니지만… 이 정도면 돌아가겠군.'
+PumpController BeforeRepair -> AfterRepair
+물 효과/작동음 활성화
+이서연:
+'됐다…….'
+'진짜 됐어.'
+완료 조건: 펌프 작동 연출 종료
+다음: Completed
+
+
+[State 15 — Completed]
+Side Effect:
+PumpRepaired = true
+Quest Completed 저장
+QuestPopup:
+'의뢰 완료 — 멈춰버린 펌프'
+MVP 종료 연출 가능
+Quest 재시작 금지
+
+
+============================================================
+51. DAY 1 화면/이벤트 구현 대본
+============================================================
+
+[Sequence A — DAY 1 시작]
+Scene: Workshop
+Trigger: 새 게임 / 프롤로그 종료
+Player Control: OFF
+UI: Fade + DayTitle
+표시:
+LAST MACHINIST
+DAY 1
+삼촌의 작업장
+
+연출 종료 후 Player Control ON.
+
+
+[Sequence B — 박성철 Intro]
+NPC 위치: 작업장 안 또는 입구
+InteractionPrompt: '[E] 박성철과 대화'
+Dialogue ID: DAY1_SEONGCHEOL_INTRO
+
+박성철:
+'어이, 자네. 결국 이곳을 맡기로 했나.'
+'그런데 기본적인 가공법은 아나?'
+
+ChoicePanel:
+1. '기본 정도는 알고 있습니다.'
+2. '오래돼서 좀 가물가물합니다.'
+3. '잘 모릅니다.'
+
+효과:
+스토리 분기 없음.
+TutorialDetailLevel만 변경.
+Stats/난이도 변화 없음.
+
+완료 -> FarmerArrived.
+
+
+[Sequence C — 이서연 등장]
+Trigger: Intro 종료
+Player Control: OFF 또는 제한
+이서연 등장 위치: Workshop 출입구
+Dialogue ID: DAY1_SEOYEON_ARRIVAL
+
+대화 종료 -> Quest Objective '서연의 농장으로 이동하기'
+Player Control ON
+
+
+[Sequence D — Farm 진단]
+Scene: Farm
+PumpController = BeforeRepair
+NPC:
+이서연 = 펌프 옆
+박성철 = 점검 지점
+
+펌프 상호작용 또는 자동 Trigger로 DAY1_PUMP_DIAGNOSIS 시작.
+진단 완료 후 고장 축 아이템 생성/획득.
+
+
+[Sequence E — 작업장 복귀와 자 이벤트]
+Workshop 복귀.
+Quest Objective: '고장난 축을 살펴보자.'
+
+고장 축 Inspection에서 측정 시도.
+현재 사용 가능한 도구 = 금속 자.
+자 사용 Trigger 후 박성철 Dialogue 강제.
+그 후 버니어 지급.
+
+
+[Sequence F — 버니어 학습]
+MeasurementPage 최초 진입.
+화면에 최종 숫자 없음.
+박성철은 본척/부척 원리만 설명.
+플레이어가 직접 읽음.
+
+
+[Sequence G — 마모 분석]
+L1/L2 측정 -> WorkMemo 갱신.
+L3 측정 -> 반대쪽과 불일치/마모 흔적 강조.
+박성철 힌트 조건 충족.
+플레이어의 측정/관찰 조건을 만족하면 ShapeInferred.
+
+
+[Sequence H — 소재 선택]
+Inventory 또는 Workshop Stock Area에서 탄소강 봉재 3개 표시.
+하나 선택.
+수량 감소.
+LathePage 활성화.
+
+
+[Sequence I — 실제 가공]
+LathePage에서 플레이.
+Quest 전용 자동 정답 가공 금지.
+플레이어가 직접 Handwheel/UI로 가공.
+
+가공 도중 필요하면:
+주축 정지 -> 측정 -> Lathe 복귀.
+
+반대쪽 접근을 위해 재고정 사용.
+
+
+[Sequence J — 최종 검사]
+공작물 측정.
+InspectionSheet에 플레이어가 직접 읽은 값을 기록.
+PartEvaluator는 실제 Geometry를 평가.
+
+
+[Sequence K — 설치]
+Farm 이동.
+박성철 설치 연출.
+PumpRepaired true.
+물 흐름/작동음.
+이서연 반응.
+Quest Complete.
+
+
+============================================================
+52. Scene별 NPC/상호작용 최소 배치
+============================================================
+
+[Workshop]
+필수 오브젝트:
+- 박성철 NPC
+- 이서연 등장 Trigger/Spawn Point
+- 범용선반
+- 작업대 또는 고장품 검사 지점
+- 소재 보관 지점
+- 외삼촌 작업노트/메모 접근 지점
+- Farm 이동 출구
+
+Quest State에 따라 Interaction 활성화 변경.
+
+[Farm]
+필수 오브젝트:
+- PumpController
+- Pump inspection point
+- 이서연 NPC
+- 박성철 NPC
+- Workshop 복귀 출구
+
+PumpRepaired 저장 플래그에 따라 Scene 재진입 상태 복원.
+
+[Lathe]
+별도 Scene 또는 Workshop 내 전용 Mode 모두 허용.
+필수:
+- Workpiece visual
+- Cutting tool visual
+- LatheControlPanel
+- ToolSelectPanel
+- 4 View buttons
+- Measurement 진입
+- Reclamp
+
+
+============================================================
+53. 한국어 실제 표시 문자열 — MVP 최소 세트
+============================================================
+
+[Main]
+시작
+이어하기
+설정
+종료
+
+[Quest]
+새 의뢰
+멈춰버린 펌프
+의뢰 완료
+서연의 농장으로 이동하기
+고장난 축을 살펴보자
+고장난 축의 원래 형상을 추정해보자
+새 펌프 축을 가공하자
+완성한 펌프 축을 농장으로 가져가자
+
+[Inventory]
+인벤토리
+기계구조용 탄소강 원형봉
+금속 자
+낡은 버니어 캘리퍼스
+마모된 펌프 축
+황삭 바이트
+모따기 바이트
+
+[Lathe]
+선반
+축
+배율
+주축 회전
+주축 정지
+공구 선택
+측정
+재고정
+작업 종료
+정면
+평면
+우측면
+등각투영
+
+[Measurement]
+측정
+측정 위치
+읽은 값 입력
+기록
+다시 측정
+돌아가기
+측정 기록
+
+[Result]
+매우 양호
+사용 가능
+재가공 필요
+사용 불가
+
+[System]
+낡은 버니어 캘리퍼스를 획득했습니다.
+소재가 부족합니다.
+주축을 정지한 뒤 측정하십시오.
+현재 상태에서는 재고정할 수 없습니다.
+
+
+============================================================
+54. Lathe UI + Camera UI 통합
+============================================================
+
+LatheControlPanel 최소 구성:
+
+[축]
+[X] [Z]
+
+[배율]
+[×1] [×10] [×100]
+
+[주축]
+[회전] [정지]
+
+[공구]
+[공구 선택]
+
+[작업]
+[측정]
+[재고정]
+[작업 종료]
+
+[화면]
+[정면] [평면] [우측면] [등각투영]
+
+화면 다이얼:
+- X축 Handwheel
+- Z축 Handwheel
+
+키보드 입력과 UI 입력은 모두 동일 Lathe Command 계층 사용.
+UI 버튼이 LatheController 내부 field를 직접 변경하지 않는다.
+
+
+============================================================
+55. Input Context 우선순위 보강
+============================================================
+
+GameplayContext
+DialogueContext
+LatheContext
+MeasurementContext
+UIContext
+
+DialogueContext:
+- 이동 제한 가능
+- 대화 진행/선택지만 활성
+
+LatheContext:
+- Mouse Wheel = 선택 축 Handwheel
+- Camera Zoom에 사용 금지
+
+MeasurementContext:
+- Lathe Handwheel 비활성
+- Measurement UI 입력 우선
+
+UIContext:
+- ScrollView 위에서 Mouse Wheel을 UI Scroll에 사용할 경우 Lathe Handwheel 차단
+
+Context가 겹쳐 한 입력이 두 시스템을 동시에 조작하지 않도록 한다.
+
+
+============================================================
+56. Quest/Page 통합 테스트
+============================================================
+
+[DAY 1]
+PASS:
+- 박성철 Intro -> 서연 등장 -> Farm 이동 -> 펌프 진단 순서가 유지됨
+FAIL:
+- Farm에 먼저 갈 수 있음
+- 버니어 이벤트를 건너뛰고 제작 가능
+
+[한국어]
+PASS:
+- 일반 플레이 UI 전체 한국어
+FAIL:
+- 'Spindle', 'Front', 'Inventory' 등 영어 노출
+
+[측정]
+PASS:
+- 버니어 눈금만 보고 직접 입력
+FAIL:
+- 실제 숫자 자동 표시
+
+[WorkMemo]
+PASS:
+- 측정/관찰에 따라 정보가 점진적으로 생김
+FAIL:
+- 처음부터 Ø40×30 / Ø50×40 / Ø40×30 정답 전체 표시
+
+[Quest State]
+PASS:
+- InspectingBrokenShaft에서 측정 가능, 제작 시작 불가
+- ShapeInferred 이후 소재 선택 가능
+- FinalInspection 전 납품 불가
+FAIL:
+- State와 상관없이 모든 Page/행동 접근 가능
+
+[Camera]
+PASS:
+- 정면/평면/우측면/등각투영 전환 가능
+- 키보드와 UI 버튼 모두 동작
+- Turning 시작 기본 View = 정면
+- Mouse Wheel로 카메라 Zoom 안 됨
+FAIL:
+- 자유 카메라만 존재
+- UI 버튼 없음
+- Wheel이 Handwheel과 Zoom을 동시에 수행
+
+[Save]
+PASS:
+- Quest State, 버니어 획득, Workpiece, 기록, PumpRepaired 유지
+
+
+============================================================
+57. Codex 구현 시 상세 작업 규칙 — 공통 보강
+============================================================
+
+Codex는 이 문서를 '아이디어 참고자료'가 아니라 '구현 계약'으로 취급한다.
+
+반드시:
+1. 현재 프로젝트 파일을 먼저 읽는다.
+2. 이미 구현된 기능을 가능한 한 보존하며 수정한다.
+3. 변경 전에 변경 파일 목록과 이유를 정리한다.
+4. Player-Facing 문자열은 한국어로 구현한다.
+5. 영어 enum/class 이름을 그대로 UI에 출력하지 않는다.
+6. Measurement를 숫자 결과 팝업으로 단순화하지 않는다.
+7. MeasurementPoint를 실제값 표시 버튼으로 구현하지 않는다.
+8. TrueDimension / InstrumentReading / RecordedMeasurement를 분리한다.
+9. WorkMemo에 TargetGeometry를 조기 노출하지 않는다.
+10. Quest State가 Page와 Interaction 접근 권한을 실제로 제어하게 한다.
+11. UI 버튼과 키보드/마우스 입력은 동일 Command 계층을 사용한다.
+12. 4개 고정 Camera View를 구현하고 자유 카메라로 대체하지 않는다.
+13. Debug UI를 일반 Player UI와 분리한다.
+14. TODO/Placeholder로 핵심 흐름을 비워둔 채 완료했다고 하지 않는다.
+15. MVP 범위 밖의 3D 탐색/밀링/차량/도제 등을 임의로 구현하지 않는다.
+16. 실제 위험한 공작기계 운전 훈련용 RPM/feed/세팅 수치를 추가하지 않는다.
+17. 구현 후 아래 항목을 직접 검토한다:
+   - 컴파일 오류
+   - NullReference 가능성
+   - Scene 전환 후 Quest State 유지
+   - Player UI 영어 누출
+   - 측정 실제값 누출
+   - Quest State 우회 가능성
+   - Mouse Wheel 입력 충돌
+
+
+============================================================
+58. 권장 구현 우선순위
+============================================================
+
+현재 MVP가 이미 제작 중이므로 처음부터 재작성하지 않는다.
+기존 구현을 점검하고 다음 순서로 수정한다.
+
+PATCH 1 — 한국어화
+- 모든 Player-Facing UI를 한국어로 교체
+- UI Localized Display Name 경로 정리
+
+PATCH 2 — 측정 시스템 재구현
+- True/Instrument/Recorded 분리
+- VernierView 실제 눈금화
+- 숫자 자동 표시 제거
+
+PATCH 3 — Quest State 접근 제어
+- DAY 1 상태머신 보강
+- 단계 건너뛰기 방지
+
+PATCH 4 — UI/Page 연결
+- Measurement/WorkMemo/Inventory/Lathe/Result 흐름 연결
+
+PATCH 5 — 4 View Camera
+- Front/Top/Right/Isometric
+
+PATCH 6 — DAY 1 이벤트/대사 완성
+- 박성철 Intro
+- 서연 등장
+- Farm 진단
+- Ruler -> Vernier
+- Pump repair
+
+PATCH 7 — 통합 테스트
+- Quest 01 처음부터 끝까지 플레이
+
+
+============================================================
+59. 최종 MVP 성공 기준
+============================================================
+
+MVP는 다음을 모두 만족해야 완료로 본다.
+
+1. 새 게임을 시작하면 DAY 1이 한국어로 표시된다.
+2. 박성철 Intro와 선택지가 정상 작동한다.
+3. 이서연이 등장하고 Farm으로 진행된다.
+4. 펌프 고장과 마모된 축 획득이 스토리 이벤트로 연결된다.
+5. 금속 자 사용 후 박성철 '에헤이~' 이벤트가 발생한다.
+6. 낡은 버니어를 획득한다.
+7. 측정값 숫자를 자동 표시하지 않는다.
+8. 버니어 본척/부척을 플레이어가 직접 읽는다.
+9. 플레이어가 값을 직접 입력하고 RecordedMeasurement가 저장된다.
+10. L3 마모와 대칭성을 이용해 원래 형상을 추론한다.
+11. WorkMemo가 정보 해금 순서를 지킨다.
+12. 탄소강 봉재 3개 중 하나를 사용한다.
+13. 선반에서 실제 Geometry를 직접 가공한다.
+14. X/Z, ×1/×10/×100, Mouse Wheel, UI 다이얼이 작동한다.
+15. 모든 핵심 기능에 클릭 가능한 UI 대응이 있다.
+16. 정면/평면/우측면/등각투영 4 View를 전환할 수 있다.
+17. 재고정 후 반대쪽을 가공할 수 있다.
+18. 완성품을 다시 직접 측정하고 기록할 수 있다.
+19. PartEvaluator는 실제 Geometry를 기준으로 판정한다.
+20. Acceptable 이상 부품을 농장에 가져갈 수 있다.
+21. 박성철이 부품을 설치한다.
+22. 펌프가 실제로 작동하고 물이 흐른다.
+23. 이서연의 완료 반응이 나온다.
+24. '의뢰 완료 — 멈춰버린 펌프'가 표시된다.
+25. Save/Load 후 핵심 상태가 유지된다.
+26. 일반 플레이 화면에 영어 Placeholder가 남지 않는다.
+27. 일반 플레이 화면에 TrueDimension 디버그 숫자가 노출되지 않는다.
+
+플레이어가 마지막에 반드시 이해해야 하는 인과관계:
+
+'고장난 축을 봤다.'
+-> '현재 상태를 직접 측정했다.'
+-> '마모 전 원래 형상을 추론했다.'
+-> '새 축을 직접 깎았다.'
+-> '내가 만든 축이 실제 펌프를 다시 움직였다.'
+
+============================================================
+60. 측정 시스템 상세 구현 명세 — 통합본
+============================================================
+
+[권위 규칙]
+이 Section은 MVP의 모든 측정 관련 구현에서 가장 높은 우선순위를 가진다.
+앞선 Section의 측정 요약과 충돌하면 Section 60을 따른다.
+측정은 Last Machinist의 핵심 게임플레이이며 단순화 대상이 아니다.
+
+============================================================
+60.0 이 문서의 목적
+============================================================
+
+이 문서는 Last Machinist의 "측정" 시스템을 구현하기 위한 절대 기준이다.
+
+측정 시스템은 단순히 치수를 숫자로 보여주는 기능이 아니다.
+측정은 게임의 핵심 플레이 루프 중 하나이며,
+플레이어가 실제로 "눈금을 보고, 읽고, 판단하고, 기록하는" 행위 자체가 게임플레이다.
+
+이 문서를 읽고도
+"측정 버튼을 누르면 39.80 mm가 뜬다"
+같은 구현을 하면 실패다.
+
+가장 중요한 한 문장:
+
+플레이어에게 정답 숫자를 보여주지 않는다.
+플레이어는 버니어의 눈금을 직접 보고 값을 읽어야 한다.
+
+============================================================
+60.1 측정 시스템의 핵심 철학
+============================================================
+
+Last Machinist의 측정은 다음 구조다.
+
+[공작물의 실제 형상]
+        ↓
+TrueDimension
+        ↓
+측정기 특성 반영
+        ↓
+InstrumentReading
+        ↓
+버니어의 물리적 모양과 눈금 위치로 표현
+        ↓
+플레이어가 직접 눈금을 읽음
+        ↓
+직접 숫자 입력
+        ↓
+RecordedMeasurement
+
+절대로 다음처럼 만들지 않는다.
+
+[공작물 클릭]
+→ "39.80 mm"
+→ 확인 버튼
+
+이것은 측정 게임이 아니라 숫자 표시창이다.
+
+============================================================
+60.2 세 가지 값은 절대 합치지 않는다
+============================================================
+
+반드시 아래 3개를 분리한다.
+
+60.1 TrueDimension
+60.2 InstrumentReading
+60.3 RecordedMeasurement
+
+----------------------------------------
+2.1 TrueDimension
+----------------------------------------
+
+게임 내부의 실제 공작물 치수.
+
+예:
+
+현재 공작물 실제 지름:
+39.80 mm
+
+그러면:
+
+TrueDimension = 39.80
+
+이 값은 Workpiece Geometry에서 계산한다.
+플레이어는 이 값을 직접 볼 수 없다.
+일반 게임 UI에 절대 표시하지 않는다.
+
+허용:
+- Editor
+- Development Build Debug Panel
+- 자동화 테스트
+
+금지:
+- 일반 HUD
+- MeasurementPage
+- VernierView
+- Quest UI
+- WorkMemo
+
+----------------------------------------
+2.2 InstrumentReading
+----------------------------------------
+
+측정기가 실제로 표현해야 할 값.
+
+MVP에서는 복잡한 계측 오차를 생략할 수 있으므로
+초기에는 다음처럼 동일할 수 있다.
+
+TrueDimension = 39.80
+InstrumentReading = 39.80
+
+하지만 데이터 구조는 반드시 분리한다.
+
+향후:
+TrueDimension = 39.80
+InstrumentReading = 39.82
+
+같은 시스템을 확장할 수 있어야 한다.
+
+InstrumentReading은 숫자 텍스트로 플레이어에게 보여주는 값이 아니다.
+이 값은 버니어의:
+- 죠 간격
+- 슬라이더 위치
+- 본척 위치
+- 부척 위치
+- 눈금 정렬
+을 계산하기 위한 내부 입력값이다.
+
+----------------------------------------
+2.3 RecordedMeasurement
+----------------------------------------
+
+플레이어가 직접 눈금을 읽고 입력한 값.
+
+예:
+TrueDimension = 39.80
+InstrumentReading = 39.80
+
+플레이어가 눈금을 잘못 읽음.
+플레이어 입력:
+39.30
+
+그러면:
+RecordedMeasurement = 39.30
+
+게임은 자동으로 다음 행동을 하면 안 된다.
+- "틀렸습니다."
+- "정답은 39.80입니다."
+- 39.30 → 자동으로 39.80 수정
+
+플레이어가 잘못 읽은 기록도 그대로 저장한다.
+
+============================================================
+60.3 측정이 실제 플레이에서 어떻게 진행되는가
+============================================================
+
+STEP 1. 플레이어가 측정 모드에 들어간다.
+STEP 2. 측정할 대상 공작물을 확인한다.
+STEP 3. 측정할 위치를 선택한다.
+STEP 4. MeasurementPoint가 Workpiece Geometry를 참조하여 실제 치수를 계산한다.
+STEP 5. TrueDimension을 얻는다.
+STEP 6. 측정기 모델이 InstrumentReading을 생성한다.
+STEP 7. 버니어 캘리퍼스가 InstrumentReading에 맞는 위치로 움직인다.
+STEP 8. 플레이어 화면에는 버니어 눈금만 보인다.
+STEP 9. 플레이어가 눈금을 직접 읽는다.
+STEP 10. 플레이어가 빈 입력칸에 직접 숫자를 입력한다.
+STEP 11. [기록] 버튼을 누른다.
+STEP 12. 입력값을 RecordedMeasurement로 저장한다.
+STEP 13. WorkMemo / 검사표 / Quest 진행에 필요한 경우 기록 사실만 전달한다.
+
+중요:
+정답 숫자는 STEP 1~13 어디에서도 플레이어에게 자동 공개하지 않는다.
+
+============================================================
+60.4 MeasurementPoint의 정확한 의미
+============================================================
+
+MeasurementPoint는 "정답 숫자를 반환하는 버튼"이 아니다.
+MeasurementPoint는 "플레이어가 측정기를 어느 위치에 대는가"를 정의하는 선택 지점이다.
+
+예:
+PumpShaftBroken
+- L1_Diameter
+- L1_Length
+- L2_Diameter
+- L2_Length
+- L3_Diameter
+- L3_Length
+
+L1_Diameter를 선택하면:
+60.1 L1 위치를 시각적으로 강조
+60.2 해당 위치의 실제 Geometry를 읽음
+60.3 현재 지름을 계산
+60.4 버니어가 해당 지름만큼 벌어짐
+60.5 플레이어가 눈금을 읽음
+
+절대로:
+L1_Diameter 선택
+→ 40.00 mm 출력
+
+이렇게 만들지 않는다.
+
+============================================================
+60.5 버니어 캘리퍼스는 장식 UI가 아니다
+============================================================
+
+VernierView는 단순 이미지가 아니다.
+측정값에 따라 실제로 움직여야 한다.
+
+필수 구성:
+- 고정 죠
+- 이동 죠
+- 본척(Main Scale)
+- 부척(Vernier Scale)
+- 슬라이더
+- 측정 대상 표시
+- 현재 접촉 상태
+
+InstrumentReading이 바뀌면 버니어 모양도 바뀌어야 한다.
+
+예:
+InstrumentReading = 37.60
+→ 이동 죠가 37.60에 해당하는 위치까지 이동
+→ 부척이 본척 위에서 실제 읽을 수 있는 위치에 배치
+→ 눈금 정렬이 37.60에 해당해야 함
+
+InstrumentReading = 42.20
+→ 이전과 다른 위치로 이동
+→ 눈금 정렬도 바뀜
+
+============================================================
+60.6 버니어 눈금 구현 원칙
+============================================================
+
+MVP에서는 하나의 버니어 사양을 고정 사용한다.
+현실 특정 제품의 훈련기를 복제할 필요는 없지만, 게임 내 눈금은 일관되고 판독 가능해야 한다.
+
+반드시 다음을 만족한다.
+60.1 본척이 있다.
+60.2 부척이 있다.
+60.3 측정값에 따라 부척 위치가 달라진다.
+60.4 특정 부척 눈금이 본척 눈금과 정렬된다.
+60.5 플레이어가 눈으로 값을 추론할 수 있다.
+60.6 정답 숫자를 옆에 표시하지 않는다.
+
+============================================================
+60.7 버니어 표시값 계산 흐름
+============================================================
+
+권장 구조:
+MeasurementService
+→ GetTrueDimension()
+→ MeasurementInstrumentModel
+→ GetInstrumentReading()
+→ VernierDisplayModel
+→ VernierRenderer
+
+VernierDisplayModel 예:
+- MainScaleBase
+- SliderPosition
+- VernierOffset
+- AlignedVernierIndex
+- JawOpening
+
+화면에서는 이 DisplayModel을 사용한다.
+UI가 직접 TrueDimension을 읽어 텍스트로 출력하지 않는다.
+
+============================================================
+60.8 MeasurementPage UI 구성
+============================================================
+
+상단:
+- 제목: "측정"
+- 대상: "마모된 펌프 축"
+
+측정 위치 패널:
+[L1 직경]
+[L1 길이]
+[L2 직경]
+[L2 길이]
+[L3 직경]
+[L3 길이]
+
+중앙:
+- 확대된 VernierView
+- 본척
+- 부척
+- 죠
+- 선택한 측정 위치 강조
+
+하단:
+읽은 값 입력
+[              ] mm
+
+[기록]
+[다시 측정]
+[기록 목록]
+[돌아가기]
+
+가공 중이라면:
+[가공으로 돌아가기]
+
+중요:
+입력칸은 항상 플레이어가 직접 입력한다.
+MeasurementPoint를 선택했다고 자동으로 채워지면 실패다.
+
+============================================================
+60.9 측정 화면의 UI 우선순위
+============================================================
+
+MeasurementPage에서 가장 중요한 것은 버니어다.
+
+우선순위:
+60.1 버니어 눈금
+60.2 측정 대상 위치
+60.3 입력칸
+60.4 기록 버튼
+60.5 측정 위치 선택
+60.6 퀘스트 목표
+60.7 기타 HUD
+
+절대 금지:
+- 거대한 퀘스트창이 버니어를 가림
+- 버니어 위에 튜토리얼 창 표시
+- 숫자 정답 텍스트를 눈금 옆에 표시
+- 입력칸에 자동 정답 입력
+- 일반 HUD가 눈금 영역 침범
+
+============================================================
+60.10 측정 모드 진입 조건
+============================================================
+
+선반에서 측정하려면:
+- Workpiece가 존재
+- 측정 가능한 MeasurementPoint 존재
+- 버니어 보유
+- Quest/게임 상태가 측정 허용
+- 주축 정지
+
+주축이 회전 중이면 측정 모드 진입 금지.
+
+한국어 안내 예:
+"주축이 회전 중입니다."
+"측정하려면 먼저 주축을 정지하세요."
+
+============================================================
+60.11 고장 펌프 축 측정
+============================================================
+
+정상 원래 형상:
+전체 길이 100 mm
+L1 = Ø40 × 30
+L2 = Ø50 × 40
+L3 = Ø40 × 30
+
+고장품:
+- L1 정상에 가까움
+- L2 정상에 가까움
+- L3 직경 마모
+- L3 길이 방향 마모
+
+플레이어가 L3를 재면 "원래 Ø40 × 30"을 보여주면 안 된다.
+버니어는 오직 현재 마모되어 남아 있는 실제 치수만 표현한다.
+
+============================================================
+60.12 첫 퀘스트에서 플레이어가 배우는 사고 과정
+============================================================
+
+목표:
+"측정값 = 설계값"이 항상 성립하지 않는다는 것을 직접 이해하게 한다.
+
+진행:
+60.1 L1 측정
+60.2 L2 측정
+60.3 L3 측정
+60.4 L3가 반대쪽과 다름을 확인
+60.5 시각적 마모 흔적 확인
+60.6 전체 형상 대칭성 관찰
+60.7 L1이 L3의 원래 대응 형상일 가능성 판단
+60.8 전체 길이 정보 및 형상을 함께 판단
+60.9 원래 L3 형상을 추론
+
+버니어:
+"지금 이 부품이 현재 어떻게 되어 있는지"
+
+WorkMemo/관찰:
+"이 부분은 마모된 것 같다"
+
+플레이어:
+"그러면 원래 형상은 반대편과 같았을 가능성이 높다"
+
+이것이 핵심 게임플레이다.
+
+============================================================
+60.13 WorkMemo와 측정 연동
+============================================================
+
+WorkMemo는 정답 공개창이 아니다.
+
+처음:
+펌프 축
+도면 없음
+
+L1 측정 후:
+플레이어가 기록한 값만 표시 가능.
+
+예:
+L1 직경
+기록: 40.0
+
+이 값은 RecordedMeasurement이다.
+실제 내부 치수와 자동 동기화하지 않는다.
+
+L3 측정 후:
+관찰:
+- 마모 흔적 있음
+- 반대쪽과 형상이 다름
+
+추론 완료 전에는:
+"원래 L3 = Ø40 × 30"
+자동 표시 금지.
+
+ShapeInferred 이후에만:
+추정 원형
+L1 Ø40 × 30
+L2 Ø50 × 40
+L3 Ø40 × 30
+전체 100
+
+을 표시할 수 있다.
+
+============================================================
+60.14 RecordedMeasurement 데이터
+============================================================
+
+MeasurementRecord 예:
+- RecordId
+- WorkpieceInstanceId
+- MeasurementPointId
+- InstrumentId
+- RecordedValue
+- Timestamp(optional)
+- QuestId(optional)
+
+RecordedValue는 플레이어 입력값이다.
+MeasurementRecord에 TrueDimension을 정답처럼 복사하지 않는다.
+
+============================================================
+60.15 측정 후 가공 루프
+============================================================
+
+선반 가공
+↓
+주축 정지
+↓
+측정
+↓
+현재 구간 선택
+↓
+버니어 눈금 확인
+↓
+플레이어 직접 판독
+↓
+값 입력
+↓
+가공 화면 복귀
+↓
+더 깎을지 판단
+↓
+추가 가공
+↓
+재측정
+
+게임이 "0.2 mm 더 깎으세요"처럼 정답을 대신 판단해주지 않는다.
+플레이어가 자기 기록을 보고 판단한다.
+
+============================================================
+60.16 최종 검사
+============================================================
+
+가공 완료 후 필요한 MeasurementPoint를 다시 측정한다.
+플레이어가 값을 직접 기록한다.
+
+PartEvaluator는 RecordedMeasurement가 아니라 실제 Workpiece Geometry를 기준으로 기능 판정한다.
+
+예:
+플레이어 기록: Ø40.00
+실제 Geometry: Ø38.50
+
+PartEvaluator는 Ø38.50을 평가한다.
+RecordedMeasurement는 "플레이어가 무엇이라고 판단했는가"를 나타낼 뿐이다.
+
+============================================================
+60.17 잘못 읽었을 때
+============================================================
+
+실제 39.80
+플레이어 입력 39.30
+
+[기록]
+
+결과:
+RecordedMeasurement = 39.30
+
+즉시 경고 없음.
+정답 공개 없음.
+자동 수정 없음.
+
+잘못된 측정은 이후 플레이어 판단에 영향을 줄 수 있다.
+이것이 의도된 게임플레이다.
+
+============================================================
+60.18 첫 버니어 획득 튜토리얼
+============================================================
+
+박성철:
+"……뭘로 쟀나?"
+
+주인공이 금속 자를 보여줌.
+
+박성철:
+"……."
+"에헤이~."
+"그건 네 삼촌이 그런 데 쓰라고 남긴 게 아닐 텐데."
+
+시스템:
+[낡은 버니어 캘리퍼스를 획득했습니다.]
+
+박성철:
+"여기가 본척이고, 이쪽 움직이는 게 부척이야."
+"본척에서 먼저 보고, 부척 눈금 중 맞는 곳을 찾게."
+
+첫 1회에는 [본척], [부척] 시각 라벨을 허용한다.
+그러나 "현재 값은 39.80입니다" 같은 정답 표시는 금지한다.
+
+============================================================
+60.19 측정 위치 시각화
+============================================================
+
+MeasurementPoint 선택 시 플레이어가 어디를 재고 있는지 명확해야 한다.
+
+L1 직경:
+- L1 구간 강조
+- 버니어 죠가 해당 외경을 잡는 그림
+- 나머지 구간 약간 어둡게
+
+L2 길이:
+- L2 양 끝 기준선 표시
+- 현재 선택 구간 강조
+
+플레이어가 "이 치수가 어느 부분인지" 헷갈리지 않게 한다.
+
+============================================================
+60.20 직경 측정과 길이 측정 구분
+============================================================
+
+MeasurementPoint.Type 예:
+- OuterDiameter
+- Length
+
+직경은 외경 측정 표현을 사용한다.
+길이는 선택된 두 기준점 사이 길이를 측정하는 표현을 사용한다.
+
+둘을 하나의 의미 없는 공통 버튼으로 뭉개지 않는다.
+
+============================================================
+60.21 금속 자와 버니어의 차이
+============================================================
+
+금속 자:
+- 대략적인 길이 확인
+- 정밀 측정 부적합
+- progression 연출
+
+버니어:
+- 주요 외경/길이 측정
+- 본척/부척 직접 판독
+- 직접 기록
+
+금속 자가 버니어와 같은 정밀 측정 기능을 제공하면 안 된다.
+
+============================================================
+60.22 UI 한국어 강제
+============================================================
+
+Player-facing 표시 언어는 한국어.
+
+Measurement → 측정
+Target → 대상
+Measurement Point → 측정 위치
+Record → 기록
+Records → 기록 목록
+Back → 돌아가기
+Return to Machining → 가공으로 돌아가기
+Main Scale → 본척
+Vernier Scale → 부척
+Read Value → 읽은 값
+
+코드 내부 영어 식별자는 사용 가능하지만 그대로 UI에 출력하지 않는다.
+
+============================================================
+60.23 Quest State 연동
+============================================================
+
+InspectingBrokenShaft:
+허용:
+- 버니어 사용
+- L1/L2/L3 MeasurementPoint 선택
+- 기록
+- WorkMemo 확인
+- 인벤토리 확인
+
+금지:
+- 새 봉재 가공 시작
+- 펌프 축 납품
+- Quest 완료
+- 정답 형상 자동 표시
+
+ShapeInferred 이후:
+- 추정 원형 확인
+- 소재 선택
+- 가공 준비
+
+Machining:
+- 가공
+- 주축 정지 후 측정
+- 기록
+- WorkMemo 확인
+
+FinalInspection:
+- 최종 치수 측정
+- 검사 기록
+- 완료 판정 진행
+
+============================================================
+60.24 MeasurementContext
+============================================================
+
+MeasurementPage가 열린 동안:
+- Lathe Handwheel 입력 차단
+- 주축 조작 차단
+- 공구 이동 차단
+
+MeasurementContext로 전환한다.
+페이지 종료 시 이전 Context로 복귀한다.
+
+============================================================
+60.25 일반 HUD와 측정 화면
+============================================================
+
+MeasurementPage에서는 가공 HUD를 크게 유지하지 않는다.
+AXIS / SCALE / TOOL 같은 정보는 최소화하거나 숨긴다.
+버니어 가독성이 최우선이다.
+
+============================================================
+60.26 디버그 UI와 일반 UI 분리
+============================================================
+
+Debug Panel에서는 다음을 볼 수 있다.
+- TrueDimension
+- InstrumentReading
+- RecordedMeasurement
+- MeasurementPoint ID
+- Workpiece Geometry
+
+하지만 Debug Panel은 Editor 또는 Development Build에서만 표시.
+일반 플레이 빌드에는 노출 금지.
+
+============================================================
+60.27 필수 클래스 책임 예시
+============================================================
+
+MeasurementService
+- MeasurementPoint를 통해 실제 Geometry에서 치수 계산
+
+MeasurementInstrumentModel
+- TrueDimension을 InstrumentReading으로 변환
+
+VernierDisplayModel
+- InstrumentReading을 버니어 시각 상태로 변환
+
+VernierView
+- 버니어를 화면에 렌더링
+
+MeasurementInputPanel
+- 플레이어 숫자 입력
+
+MeasurementRecordService
+- RecordedMeasurement 저장
+
+MeasurementPageController
+- Page 흐름과 Context 관리
+
+WorkMemoService
+- 공개 가능한 관찰/기록/추론 정보 관리
+
+한 클래스가 전부 하지 않는다.
+
+============================================================
+60.28 데이터 흐름
+============================================================
+
+WorkpieceState
+↓
+MeasurementPoint
+↓
+MeasurementService
+↓
+TrueDimension
+↓
+MeasurementInstrumentModel
+↓
+InstrumentReading
+↓
+VernierDisplayModel
+↓
+VernierView
+↓
+PLAYER EYES
+↓
+Player Input
+↓
+MeasurementInputPanel
+↓
+RecordedMeasurement
+↓
+MeasurementRecordService
+
+RecordedMeasurement → Workpiece Geometry 변경은 금지.
+
+============================================================
+60.29 절대 금지 구현 목록
+============================================================
+
+FAIL 1. 측정 버튼을 누르면 "39.80 mm" 텍스트가 뜬다.
+FAIL 2. MeasurementPoint 선택 시 입력창에 정답 자동 입력.
+FAIL 3. 버니어 그림은 고정이고 옆 숫자만 바뀐다.
+FAIL 4. 틀린 값을 자동 수정한다.
+FAIL 5. 틀린 입력 직후 정답 공개.
+FAIL 6. RecordedMeasurement를 실제 Workpiece 치수로 사용.
+FAIL 7. PartEvaluator가 기록값으로 합격 판정.
+FAIL 8. WorkMemo가 측정 전부터 원래 치수 전부 공개.
+FAIL 9. 마모된 L3에서 원래 설계값 자동 표시.
+FAIL 10. Quest Panel이 버니어 눈금을 가림.
+FAIL 11. TrueDimension Debug Text가 일반 플레이 UI에 남음.
+FAIL 12. UI가 영어로 표시됨.
+
+============================================================
+60.30 PASS 테스트
+============================================================
+
+TEST A — 숫자 비노출
+TrueDimension = 37.60
+PASS:
+- 버니어가 37.60에 대응하는 위치
+- 눈금 판독 가능
+- 입력칸 비어 있음
+- "37.60 mm" 텍스트 없음
+FAIL:
+- 화면 어딘가에 37.60 자동 표시
+
+TEST B — 잘못 읽기
+TrueDimension = 39.80
+Player Input = 39.30
+PASS: RecordedMeasurement = 39.30
+FAIL: 39.80으로 자동 수정
+
+TEST C — Geometry 독립
+Player Input = 40.00
+실제 Workpiece = 38.50
+PASS: PartEvaluator는 38.50 기준
+FAIL: 40.00 기준
+
+TEST D — L3 마모
+PASS: 버니어는 현재 마모값 표현
+FAIL: 원래 Ø40 자동 표시
+
+TEST E — MeasurementPoint
+L1_Diameter 선택
+PASS: L1 강조 + L1 실제 지름 사용
+FAIL: L2/L3 값 사용
+
+TEST F — UI 가독성
+PASS: 버니어 눈금이 가장 잘 보임
+FAIL: Quest Panel이 중앙/대형으로 눈금 침범
+
+TEST G — 한국어
+PASS: 측정 / 대상 / 기록 / 돌아가기 / 가공으로 돌아가기
+FAIL: Measure / Target / Record / Back
+
+TEST H — Debug 분리
+PASS: 일반 플레이에는 TrueDimension 없음
+PASS: Editor Debug에서만 개발자 수치 확인 가능
+
+============================================================
+60.31 첫 퀘스트 완전 예시
+============================================================
+
+마모된 펌프 축을 작업장으로 가져온다.
+금속 자 이벤트 발생.
+버니어 획득.
+MeasurementPage 진입.
+
+화면:
+측정
+대상: 마모된 펌프 축
+
+[L1 직경]
+[L1 길이]
+[L2 직경]
+[L2 길이]
+[L3 직경]
+[L3 길이]
+
+플레이어가 [L1 직경] 선택.
+게임 내부에서 L1 실제 지름 계산.
+버니어 죠 이동.
+본척/부척 표시.
+
+플레이어가 눈금 읽고 40.0 입력.
+[기록]
+
+MeasurementRecord:
+L1_Diameter = 40.0
+
+L2 직경 측정 후 50.0 기록.
+
+L3 직경 측정 시 버니어는 40.0이 아니라 마모된 현재 치수를 표시.
+플레이어는 반대쪽과 다른 것을 알아챔.
+
+WorkMemo:
+"한쪽 끝에 마모 흔적이 있다."
+
+추론 완료 후에만:
+추정 원형
+L1 Ø40 × 30
+L2 Ø50 × 40
+L3 Ø40 × 30
+전체 길이 100
+
+표시 가능.
+
+============================================================
+60.32 가공 중 측정 예시
+============================================================
+
+현재 목표 L1 Ø40.
+가공 후 측정.
+플레이어가 눈금을 보고 41.2 기록.
+플레이어가 더 깎을지 판단.
+추가 가공.
+재측정.
+40.2 기록.
+다시 판단.
+
+게임은 "0.2 더 깎으세요"라고 직접 알려주지 않는다.
+
+============================================================
+60.33 측정 시스템 완료 조건
+============================================================
+
+다음 20개가 모두 만족되어야 완료다.
+
+60.1 MeasurementPoint 선택 가능
+60.2 Workpiece Geometry에서 TrueDimension 계산
+60.3 TrueDimension 일반 UI 비노출
+60.4 InstrumentReading 분리
+60.5 버니어가 InstrumentReading에 따라 실제 이동
+60.6 본척/부척 눈금 판독 가능
+60.7 입력칸 자동 채움 없음
+60.8 플레이어 직접 입력
+60.9 RecordedMeasurement 별도 저장
+60.10 틀린 입력 허용
+60.11 자동 정답 공개 없음
+60.12 WorkMemo 점진 정보 해금
+60.13 L3 마모값은 현재 치수로 표시
+60.14 PartEvaluator는 실제 Geometry 기준
+60.15 Quest State와 측정 접근 연동
+60.16 MeasurementContext 입력 분리
+60.17 UI 한국어
+60.18 Quest UI가 버니어를 가리지 않음
+60.19 Debug 수치와 일반 UI 분리
+60.20 TEST A~H 통과
+
+============================================================
+60.34 Codex 작업 지시
+============================================================
+
+Codex는 측정 시스템 수정/구현 시 반드시:
+
+60.1 기존 Measurement 관련 파일을 모두 확인한다.
+60.2 현재 구현과 이 문서의 차이를 목록화한다.
+60.3 숫자 자동 표시 여부를 찾는다.
+60.4 TrueDimension / InstrumentReading / RecordedMeasurement 분리 여부 확인.
+60.5 VernierView가 실제 측정값에 따라 움직이는지 확인.
+60.6 Debug 값이 일반 UI에 노출되는지 확인.
+60.7 MeasurementPoint가 올바른 Geometry를 참조하는지 확인.
+60.8 한국어 UI인지 확인.
+60.9 수정 계획 작성.
+60.10 구현.
+60.11 컴파일 오류 확인.
+60.12 TEST A~H 수행.
+60.13 각 테스트 결과를 PASS/FAIL로 보고.
+60.14 FAIL 하나라도 있으면 "측정 시스템 완료"라고 보고하지 않는다.
+
+============================================================
+60.35 Codex가 자의적으로 단순화하면 안 되는 것
+============================================================
+
+"숫자로 보여주는 게 더 편하니까 숫자를 표시하자." → 금지
+"버니어 눈금 구현이 복잡하니 Slider와 숫자로 대체하자." → 금지
+"플레이어가 틀리면 답을 알려주는 게 친절하다." → 금지
+"MeasurementPoint 클릭 시 값을 자동 기록하자." → 금지
+"퀘스트 진행을 쉽게 하려고 정답 치수를 먼저 보여주자." → 금지
+
+이 시스템에서 일부 불편함은 의도된 게임플레이다.
+
+플레이어가
+보고
+읽고
+생각하고
+기록하고
+판단하는 것
+
+그 자체가 게임이다.
+
+============================================================
+60.36 최종 한 줄 정의
+============================================================
+
+Last Machinist의 측정은
+"버튼을 눌러 숫자를 확인하는 기능"이 아니라,
+
+"공작물에 측정기를 대고,
+눈금을 직접 읽고,
+자기가 읽은 값을 기록하고,
+그 기록을 바탕으로 다음 가공을 판단하는 게임플레이"
+
+이다.
+
+============================================================
+61. 화면 연출 / 환경 / 씬 구성 상세 구현 명세 — 통합본
+============================================================
+
+[권위 규칙]
+이 Section은 화면 배치, 대화 UI, Quest UI, Workshop/Farm/Pump 환경,
+씬 구성, Presentation 품질 판정에서 가장 높은 우선순위를 가진다.
+기능이 존재한다는 이유만으로 시각적 구현을 완료 처리하지 않는다.
+
+61.0 핵심 목적
+이 문서는 '기능은 있으나 화면이 허접한 프로토타입'을 방지한다. Codex는 기능 존재만으로 완료 처리하지 않는다. 플레이어가 무엇을 보고, 어디를 바라보고, 무엇을 조작하는지 명확해야 한다.
+
+절대 원칙:
+- 스토리 화면에서는 장소와 인물이 주인공이다.
+- 가공 화면에서는 기계·공작물·공구가 주인공이다.
+- 측정 화면에서는 측정기와 눈금이 주인공이다.
+- UI는 주인공을 가리지 않는다.
+- 모든 Player-facing 텍스트는 한국어다.
+- Placeholder는 개발 중 허용하지만 빈 회색 방/Cube 몇 개를 Presentation 완료로 취급하지 않는다.
+
+61.1 DialoguePage
+대화창은 화면 하단 약 30~35% 높이에 고정한다. 상단 65~70%는 현재 Scene과 NPC가 계속 보이는 영역으로 남긴다.
+
+구성:
+- 화자 이름
+- 대사 본문
+- 다음 진행 표시
+- 선택지 연결 영역
+- 필요 시 NPC 초상/반신 영역
+
+개념:
+┌──────────────────────────────────────────────┐
+│                                              │
+│            현재 Scene / 현재 NPC             │
+│                                              │
+│                                              │
+├──────────────────────────────────────────────┤
+│ 박성철                                       │
+│ "에헤이~. 첫날부터 일이 생겼구먼."           │
+│ "같이 가보지."                     [다음 ▶] │
+└──────────────────────────────────────────────┘
+
+금지:
+- 화면 중앙 기본 팝업으로 대사 표시
+- 전체 화면 불투명 대화창
+- 상단 Toast 형태 대사
+- 화자 이름 없이 본문만 표시
+- 영어 placeholder
+- 배경/인물을 완전히 가림
+
+대화 중 Gameplay/기계 입력을 잠그고 DialogueContext를 사용한다. 종료 후 이전 Context로 복귀한다.
+
+61.2 ChoicePanel
+DialoguePage와 시각적으로 연결한다. 선택지는 대화창 바로 위 또는 내부 상단에 표시하며 Scene 대부분을 가리는 별도 거대 Modal로 만들지 않는다.
+
+예:
+[기본 정도는 알고 있습니다.]
+[오래돼서 좀 가물가물합니다.]
+[잘 모릅니다.]
+
+61.3 Quest UI는 반드시 3종으로 분리
+A. QuestPopup: 시작/중요 갱신/완료 순간에만 일시 표시.
+B. QuestTracker: 일반 플레이 중 모서리에 2~3줄로 작게 표시.
+C. QuestLogPage: 플레이어가 직접 열 때만 상세 정보 표시.
+
+가공 중 Tracker 예:
+멈춰버린 펌프
+새 펌프 축을 가공하자
+
+절대 금지:
+- 가공 화면의 1/3 이상을 Quest Window가 상시 차지
+- Workpiece/Tool/Vernier를 Quest UI가 가림
+- 긴 Quest 설명 상시 노출
+
+61.4 공통 화면 Safe Area
+Primary View Area 중앙에는 세계/NPC/공작물/측정기가 보여야 한다. Quest, Tutorial, Inventory, Debug Panel은 상시 중앙을 가리지 않는다. 큰 Modal은 플레이어가 직접 열었을 때만 허용한다.
+
+61.5 LathePage
+시각 우선순위:
+1) Workpiece
+2) Cutting Tool
+3) 절삭 접촉 위치
+4) X/Z Handwheel 및 조작부
+5) 현재 Axis/Scale/Spindle/Tool/Mode
+6) 작은 QuestTracker
+
+개념:
+┌──────────────────────────────────────────────┐
+│ [작은 목표]                   [정면][평면]   │
+│                               [우측][등각]   │
+│                                              │
+│             WORKPIECE / TOOL                 │
+│                                              │
+│                               [X 핸들]       │
+│                               [Z 핸들]       │
+├──────────────────────────────────────────────┤
+│ 선택 축 X | 배율 ×10 | 주축 정지 | 황삭     │
+│ [주축] [공구] [측정] [재고정] [작업 종료]   │
+└──────────────────────────────────────────────┘
+
+금지:
+- 대형 Quest/Inventory/Tutorial 상시 표시
+- Objective 중앙 배치
+- UI가 공작물/공구 접촉부를 가림
+- 고정밀 DRO 초기 상시 표시
+- 마우스 휠을 Camera Zoom과 Handwheel에 동시에 사용
+
+61.6 가공 카메라 — Projection Requirements 포함
+자유 카메라가 아니라 고정 Orthographic View 4개:
+- 정면 Front
+- 평면 Top
+- 우측면 Right
+- 등각투영 Isometric
+
+절대 규칙:
+- 네 View 모두 Unity Camera Projection 자체가 Orthographic이어야 한다.
+- Perspective Camera의 각도만 바꾸어 정면/평면/우측면으로 보이게 하는 구현은 FAIL이다.
+- Isometric View 역시 Perspective가 아니라 Orthographic Projection의 등각 방향 카메라다.
+- 원근감 때문에 동일한 형상이 깊이에 따라 작아지거나 커져 보이면 안 된다.
+- View 전환 시 Orthographic Size는 공작물/공구가 읽히도록 각 View별 설정값을 사용할 수 있다.
+
+Turning 기본 = 정면.
+키보드 단축키와 화면 UI 버튼 모두 제공. View 전환 시 UI 위치는 유지. 마우스 휠 Zoom 금지. 향후 Milling도 같은 CameraView 시스템을 공유한다.
+
+61.7 MeasurementPage
+Section 60 측정 시스템 상세 구현 명세를 최우선 적용한다.
+
+시각 우선순위:
+1) 확대된 버니어
+2) 본척/부척 눈금
+3) 측정 위치/대상
+4) 직접 입력칸
+5) 기록 버튼
+6) Quest 정보
+
+Quest UI가 눈금을 가리면 FAIL. 실제 치수 숫자 자동 표시는 절대 금지.
+
+61.8 Workshop Scene — '빈 방 + 선반' 금지
+Workshop은 김영호가 실제로 오래 사용했던 낡은 소형 가공 작업장으로 보여야 한다.
+
+필수 Landmark:
+- 범용선반: 가장 중요한 Landmark
+- 작업대: 고장품 분석/측정과 연결
+- 공구 보관 구역: 바이트/교환공구/공구함
+- 소재 보관 구역: 탄소강 원형봉이 보관되어 있다는 시각적 정보
+- 김영호 기록 공간: 노트, 책장, 종이, 작업 흔적
+- 향후 설비가 들어올 빈 공간
+
+권장 Props:
+공구함, 렌치류 실루엣, 금속 봉재, 작업등, 낡은 의자, 선반/책장, 케이블, 배전함, 금속 상자, 용기, 작업 노트, 벽 표식, 금속 부품, 바닥 마모/얼룩, 오래된 조명.
+
+모든 Props가 상호작용 가능할 필요는 없다. 목적은 '사람이 일했던 공간'이라는 정보량이다.
+
+재질/조명:
+- 바닥/벽/기계/작업대/금속 소품이 서로 구분돼야 함
+- 모든 오브젝트 동일 기본 회색 Material 금지
+- 낡음/금속/콘크리트/먼지/부분적 녹/사용감
+- 핵심 상호작용 위치는 조명으로 읽혀야 함
+- 균일한 기본 Ambient만으로 끝내지 않음
+
+61.9 Farm Scene — '초록 바닥 + 펌프' 금지
+즉시 농업 시설임을 알 수 있어야 한다.
+
+필수:
+- 작물 구역 또는 비닐하우스 맥락
+- 물 배관
+- 펌프 설비
+- 수조/물탱크 또는 공급원 맥락
+- 호스/배수로
+- 농작업 소품
+- 이서연이 여기서 일한다는 생활 흔적
+
+권장 동선:
+Scene Entry → 농업 공간 → 이서연/박성철 → Pump Landmark → 조사.
+펌프를 구석에 작게 묻지 않는다.
+
+복구 전:
+- 펌프 정지
+- 물 없음
+- 작동음 없음
+- 물 공급 중단 느낌
+
+복구 후:
+- 펌프 작동
+- 물 흐름
+- 물 소리
+- 배관/호스/수로 변화
+- 이서연 반응
+
+61.10 Pump = QUEST 01 Hero Prop
+단순 Cube/Cylinder 몇 개를 최종 펌프로 취급하지 않는다.
+
+전문 지식이 없는 플레이어도 '물을 보내는 오래된 동력 기계'라고 이해할 수 있어야 한다.
+
+필수 시각 요소:
+- Motor Section
+- Pump Body
+- Shaft/Coupling Area
+- Inlet Pipe
+- Outlet Pipe
+- Base/Frame
+- 고정 요소
+- 물 공급 방향을 이해할 수 있는 연결 구조
+
+권장:
+보호 커버, 라벨/표식, 플랜지/볼트 느낌, 배관 이음부, 녹/도장 벗겨짐, 유지보수 흔적.
+
+멀리서도 '모터 + 펌프 + 배관' 실루엣이 읽혀야 한다.
+
+고장 상태:
+- 회전 없음
+- 물 없음
+- 소리 없음
+- 축/커플링 영역을 조사 대상으로 읽을 수 있음
+- 스토리상 박성철이 커버를 열거나 일부를 분해하는 단순 연출 가능
+
+복구 상태:
+- 회전 표현
+- 약한 진동
+- 작동음
+- 물 흐름
+- 배관/호스/수로 효과
+
+Quest Complete 글자만 뜨고 펌프가 그대로면 FAIL.
+
+61.11 NPC 배치
+Workshop의 박성철은 선반/작업대 근처. Farm의 이서연은 농업 공간/펌프와 연결된 위치. Pump 조사 시 박성철은 펌프 가까이 이동해 조사 대상을 바라본다.
+
+대화 시 현재 화자가 화면에 보이거나 카메라/시선으로 누구인지 자연스럽게 읽혀야 한다. NPC가 화면 밖인데 대사만 뜨는 상황을 피한다.
+
+61.12 NPC Placeholder 최소 품질
+박성철과 이서연은 최소한 실루엣/복장 맥락/초상 등으로 서로 구분 가능해야 한다. 모든 NPC를 동일 Capsule + 이름표만 바꾼 상태로 Presentation 완료 처리하지 않는다.
+
+61.13 Scene Entrance / Establishing
+Workshop 최초 진입: 선반, 작업대, 낡은 작업장이라는 장소성이 읽히는 구도.
+Farm 최초 진입: 농업 공간, 물 관련 설비, NPC가 읽히는 구도.
+
+짧은 Location Title 허용:
+DAY 1
+삼촌의 작업장
+
+또는
+농장
+
+오래 화면을 가리지 않는다.
+
+61.14 DAY 1 Presentation Flow
+14.1 Fade from black → LAST MACHINIST → DAY 1 / 삼촌의 작업장 → Workshop 노출.
+
+14.2 박성철 첫 대화: Workshop 배경 유지, 하단 1/3 DialoguePage.
+"어이, 자네. 결국 이곳을 맡기로 했나."
+"그런데 기본적인 가공법은 아나?"
+ChoicePanel 연결.
+
+14.3 이서연 등장: 입구 방향에서 등장하거나 등장 사실이 시각적으로 명확해야 함.
+"성철 아저씨! 잠깐만 와봐요. 기계가 또 안 돌아가요!"
+박성철: "에헤이~. 첫날부터 일이 생겼구먼." / "같이 가보지."
+QuestPopup: 의뢰 시작 「멈춰버린 펌프」 → 잠시 후 사라짐 → 작은 Tracker만 남음.
+
+14.4 Farm: 작은 Tracker '펌프 상태를 확인하자'. Pump 근처 [조사하기].
+
+14.5 고장 축: DialoguePage로 진단 대사. [마모된 펌프 축]을 획득했습니다. 는 작은 Toast.
+
+14.6 Workshop 복귀: 작업대에서 고장 축 조사 → 금속 자 → 박성철 '……뭘로 쟀나?' / '…….' / '에헤이~.' → 낡은 버니어 획득 → MeasurementPage 연결.
+
+61.15 InteractionPrompt
+작고 문맥적으로 표시:
+[E] 조사하기
+[E] 대화하기
+[E] 선반 사용
+[E] 작업대 확인
+
+거대한 중앙 버튼 금지.
+
+61.16 Inventory
+플레이어가 직접 열 때만 큰 Page. 상시 표시 금지.
+고장 축 상세 예:
+마모된 펌프 축
+도면 없음.
+한쪽 끝에 심한 마모 흔적이 있다.
+중앙이 더 굵은 3단 축 형태로 보인다.
+측정/추론 전 정답 치수 금지.
+
+61.17 WorkMemo
+Debug Table이 아니라 작업 기록장 느낌. 대상/관찰/플레이어 측정 기록/확보 단서/추론 결과를 표시. 정보는 진행에 따라 점진 해금. 측정하지 않은 값을 자동 채우지 않는다.
+
+61.18 Tutorial
+큰 강의창 금지. 필요한 순간 기능 하나만 짧게. 핵심 오브젝트를 가리지 않는다.
+선반 예: X/Z 축 선택, 1/2/3 배율, 마우스 휠 핸들.
+버니어 첫 1회: [본척], [부척] 라벨/강조 허용. 정답 숫자 공개 금지.
+
+61.19 Toast
+작고 일시적. 예:
+[낡은 버니어 캘리퍼스를 획득했습니다.]
+[측정 기록을 저장했습니다.]
+[기계구조용 탄소강 원형봉을 사용했습니다.]
+여러 Toast가 무한히 쌓이지 않는다.
+
+61.20 화면 정보 밀도
+밋밋함은 HUD를 늘려 해결하지 않는다. 환경 정보량을 늘린다.
+좋음: 배관, 공구, 작업 흔적, 소재, 구조물, 조명, 표면 차이, 사용감.
+나쁨: Quest 텍스트 8줄, HUD 숫자 15개, 거대 Tutorial, Debug 값, 불필요한 버튼.
+
+61.21 UI Layer
+Layer 0 World: Environment/Machine/Workpiece/NPC
+Layer 1 Context HUD: InteractionPrompt/Lathe status/View buttons
+Layer 2 Small Tracker: QuestTracker
+Layer 3 Temporary: Toast/QuestPopup
+Layer 4 Dialogue: DialoguePage/ChoicePanel
+Layer 5 Modal: Inventory/QuestLog/WorkMemo/Measurement/Pause/Settings
+Debug: Development Build only
+
+61.22 Modal
+Modal이 열리면 뒤 Gameplay 입력 잠금, 중복 입력 방지, 명확한 닫기/돌아가기, 종료 후 이전 Context 복귀. QuestTracker는 Modal 아님.
+
+61.23 한국어/Typography
+한글 Glyph 지원 Font Asset 사용. 이름/대사/버튼 줄바꿈 확인. 영어 기준 좁은 버튼 금지. '가공으로 돌아가기' 같은 문자열이 버튼 밖으로 삐져나오면 FAIL.
+
+61.24 Audio
+Workshop: 환경음 + 선반 작동음.
+Farm: 환경음 + 복구 전 정적 + 복구 후 펌프/물 소리.
+Voice Acting은 MVP 필수 아님.
+Pump repair는 시각 + 소리 변화가 함께 있어야 함.
+
+61.25 Scene Focus Object
+Workshop: Lathe > Workbench > Material Storage > Uncle's Notes
+Farm: Pump > Water System > Crops > Lee Seoyeon
+Lathe: Workpiece > Tool > Controls
+Measurement: Vernier > Measurement Target > Input
+Focus Object를 UI가 가리지 않는다.
+
+61.26 Codex Audit
+수정 전 반드시 현재 Scene/UI를 확인하고 보고:
+- Workshop 환경 오브젝트/빈 공간/Material/Lighting
+- Farm이 농장으로 읽히는지/배관/물 공급 맥락
+- Pump 구성/실루엣/고장-복구 차이
+- Dialogue 위치
+- Quest UI 크기
+- Lathe 가림 여부
+- Measurement 가림 여부
+그 후 수정한다.
+
+61.27 PASS/FAIL — Dialogue
+PASS: 하단 약 1/3, 장면 보임, 화자 이름, 읽기 쉬운 본문, 선택지, 한국어.
+FAIL: 중앙 기본 팝업, 전체 화면 덮기, 배경 차단, 영어 placeholder, 화자 구분 없음.
+
+61.28 PASS/FAIL — Quest
+PASS: 시작/완료는 Popup, 진행은 작은 Tracker, 상세는 QuestLog.
+FAIL: 가공 화면 1/3 이상 Quest가 상시 점유, Workpiece 가림, 긴 설명 상시 노출.
+
+61.29 PASS/FAIL — Workshop
+PASS: 스크린샷만 보고 '낡은 기계 작업장'이라고 인식. 선반/작업대/공구/소재/기록 공간 구분.
+FAIL: 빈 벽+빈 바닥+선반 하나, 기본 Primitive 그대로, Material 모두 동일.
+
+61.30 PASS/FAIL — Farm
+PASS: 물 공급 문제가 생긴 농업 공간이라는 맥락을 시각적으로 이해.
+FAIL: 펌프만 덩그러니, 작물/배관/공급 구조 없음.
+
+61.31 PASS/FAIL — Pump
+PASS: Motor/Pump Body/Shaft-Coupling/Pipe/Base 구분, 복구 전후 명확.
+FAIL: Cube/Cylinder 몇 개, 배관 없음, 정체 불명, 복구 후 변화 없음.
+
+61.32 PASS/FAIL — Lathe
+PASS: Workpiece/Tool 최우선, 작은 Tracker, X/Z Dial 접근, 4 View, HUD 비침범.
+FAIL: Quest UI가 공작물보다 큼, 자유 카메라 기본, Wheel Zoom+Handwheel 동시, UI가 접촉부 가림.
+
+61.33 PASS/FAIL — Measurement
+PASS: Vernier가 화면 핵심, 눈금 선명, 위치 명확, 정답 비노출, Quest 최소화.
+FAIL: Quest가 눈금보다 큼, 정답 숫자 표시, Vernier 장식 수준, Debug 값 노출.
+
+61.34 Presentation 완료 조건
+1) Dialogue 하단 30~35%.
+2) 대화 중 배경/NPC 보임.
+3) QuestPopup/Tracker/Log 분리.
+4) 가공 화면 대형 Quest Panel 없음.
+5) Workshop 빈 회색 방 아님.
+6) Workshop 핵심 Landmark 5종 이상.
+7) Farm이 농업 공간으로 읽힘.
+8) Pump가 Hero Prop 수준으로 식별됨.
+9) Pump 고장/복구 상태 시각적으로 다름.
+10) 복구 후 물이 실제로 보임.
+11) 박성철/이서연 구분 가능.
+12) Lathe Workpiece/Tool 시야 확보.
+13) 4 Fixed View 동작.
+14) Measurement에서 Vernier 최우선.
+15) 일반 UI 한국어.
+16) Debug 일반 UI 비노출.
+17) Tutorial 핵심 화면 비침범.
+18) Toast 일시적.
+19) Modal 입력 잠금 정상.
+20) 주요 Scene이 서로 다른 장소로 인식됨.
+
+61.35 Codex 절대 금지 자의적 단순화
+'프로토타입이니까 중앙 대화 Panel이면 된다.' 금지.
+'Quest가 중요하니까 크게 띄우자.' 금지.
+'환경은 기능과 무관하니 Cube로 끝내자.' 금지.
+'펌프는 Cylinder 몇 개면 된다.' 금지.
+'배경이 심심하니 HUD를 더 넣자.' 금지.
+'버니어보다 Quest 목표를 크게 보여주자.' 금지.
+
+61.36 Codex 작업 순서
+1) 기존 Scene/UI 읽기.
+2) 현재 Workshop/Farm/Pump/UI Audit.
+3) PASS/FAIL 비교.
+4) 수정할 Prefab/Scene/Script/UI 목록 작성.
+5) DialoguePage 수정.
+6) QuestPopup/Tracker/Log 분리.
+7) Lathe 시야 방해 UI 축소/제거.
+8) Measurement Vernier 시야 확보.
+9) Workshop 환경 밀도 개선.
+10) Farm 환경 맥락 개선.
+11) Pump Hero Prop 개선.
+12) 고장/복구 연출 연결.
+13) 한국어 확인.
+14) PASS/FAIL 테스트.
+15) FAIL이 있으면 완료라고 보고하지 않음.
+
+61.37 최종 원칙
+Last Machinist의 화면은 '기능이 있다는 것을 증명하는 개발자 화면'이 아니라 '플레이어가 세계와 기계를 보고 이해하고 조작하는 게임 화면'이어야 한다.
+
+가공 화면에서는 기계와 공작물이 주인공이다.
+측정 화면에서는 측정기와 눈금이 주인공이다.
+스토리 화면에서는 장소와 인물이 주인공이다.
+UI는 그 주인공들을 가리지 않는다.
+
+============================================================
+62. 통합 완료 판정 — 추가 필수 조건
+============================================================
+
+기존 Section 59의 성공 기준에 더해 다음 조건을 모두 만족해야 한다.
+하나라도 FAIL이면 MVP Presentation/Measurement 통합 구현 완료로 보고하지 않는다.
+
+[측정]
+1. 버니어가 InstrumentReading에 따라 실제로 움직인다.
+2. 본척/부척 눈금만으로 값을 판독할 수 있다.
+3. 실제 치수 숫자는 일반 플레이 화면에 자동 노출되지 않는다.
+4. 입력칸은 자동 채움되지 않는다.
+5. 플레이어가 틀리게 입력한 값도 RecordedMeasurement로 그대로 저장된다.
+6. PartEvaluator는 RecordedMeasurement가 아닌 실제 Geometry를 사용한다.
+7. 고장 L3 측정은 원래 설계값이 아니라 현재 마모 형상을 표현한다.
+8. MeasurementPage에서 버니어/눈금이 Quest UI보다 시각적으로 우선한다.
+
+[대화/UI]
+9. DialoguePage는 화면 하단 약 30~35%를 사용한다.
+10. 대화 중 상단 약 65~70%에는 현재 Scene/NPC가 계속 보인다.
+11. QuestPopup, QuestTracker, QuestLogPage가 역할별로 분리되어 있다.
+12. LathePage와 MeasurementPage에 거대한 Quest Panel이 상시 표시되지 않는다.
+13. Tutorial/Toast는 핵심 기계·공작물·버니어를 장시간 가리지 않는다.
+
+[환경]
+14. Workshop이 빈 회색 방 + 선반 한 대 수준이 아니다.
+15. Workshop에 선반/작업대/공구/소재/김영호 기록 공간이 시각적으로 구분된다.
+16. Farm이 농업 공간이며 물 공급 문제가 있는 장소로 즉시 읽힌다.
+17. Pump가 모터/펌프 본체/축 또는 커플링 영역/배관/베이스를 가진 식별 가능한 Hero Prop이다.
+18. Pump 복구 전과 후의 시각·음향 상태가 명확히 다르다.
+19. 복구 후 실제 물 흐름 또는 이에 준하는 명확한 세계 변화가 보인다.
+
+[카메라]
+20. Front/Top/Right/Isometric 네 View 모두 실제 Orthographic Projection이다.
+21. Perspective Camera 각도 변경만으로 네 View를 흉내 내지 않는다.
+22. 모든 View에서 원근 왜곡 없이 공작물 형상을 읽을 수 있다.
+23. Turning 시작 View는 Front/정면이다.
+24. 자유 Orbit Camera는 MVP 가공 기본 조작에 존재하지 않는다.
+25. Mouse Wheel은 LatheContext에서 Camera Zoom과 충돌하지 않는다.
+
+[최종 플레이 인과관계]
+플레이어는 반드시 다음 흐름을 화면과 조작을 통해 이해할 수 있어야 한다.
+
+고장난 펌프를 본다
+→ 고장 축을 회수한다
+→ 현재 형상을 직접 측정한다
+→ 눈금을 직접 읽고 값을 기록한다
+→ 마모와 대칭성을 근거로 원래 형상을 추론한다
+→ 새 소재를 직접 가공한다
+→ 중간/최종 치수를 다시 측정한다
+→ 완성한 축을 농장에 가져간다
+→ 펌프가 실제로 다시 움직이고 물이 흐른다
+
+============================================================
+63. Codex 공통 최종 작업 원칙
+============================================================
+
+Codex는 이 v0.5 파일을 단일 MVP 구현 계약으로 사용한다.
+
+작업 단위는 Page/System/Scene별로 나누되, 해당 작업과 연관된 Section을 반드시 함께 확인한다.
+
+예:
+- Measurement 수정 -> Section 60 + 관련 Quest State + WorkMemo
+- Lathe UI 수정 -> Section 48 + Section 61 + Input Context
+- Dialogue 수정 -> Section 61.1 + DAY 1 구현대본
+- Workshop/Farm/Pump 수정 -> Section 61 환경 항목 + QUEST 01 상태머신
+
+완료 보고 전 반드시:
+- 컴파일 확인
+- 플레이 흐름 확인
+- 한국어 누출 확인
+- Debug 정보 누출 확인
+- UI 가림 확인
+- Orthographic Projection 확인
+- 측정 숫자 자동 공개 여부 확인
+- Quest State 우회 확인
+- Save/Load 핵심 상태 확인
+- 해당 Section PASS/FAIL 항목 보고
+
+'기능이 대충 보인다'는 완료 기준이 아니다.
+문서에 명시된 플레이어 경험과 화면 결과가 실제로 구현되어야 한다.
+
+============================================================
+v0.5 신규 정책 통합 구간
+============================================================
+============================================================
+64. v0.5 UPDATE — EXTERNAL IMAGE ASSET / NPC ILLUSTRATION POLICY
+============================================================
+
+본 섹션은 v0.5에서 새로 추가된 규칙이다. 기존 v0.4와 충돌할 경우 본 섹션을 우선한다.
+
+Last Machinist의 NPC 최종 표현은 외부에서 제공되는 이미지 에셋 또는 별도로 제작된 일러스트 에셋을 우선 사용한다. Codex의 역할은 이미지 제작이 아니라 Import, Sprite 설정, UI 연결, NPC별 Asset Binding, 표정 Variant 교체, DialoguePage 배치, Resolution/Scaling 확인, Scene 연결, Missing Reference 방지다.
+
+금지:
+- NPC 최종 외형을 Capsule/Cube/기본 3D Model로 확정
+- 임시 Placeholder를 최종 Character Asset으로 취급
+- 제공된 NPC Illustration을 무시하고 자체 3D 캐릭터 사용
+- 제공된 Aspect Ratio를 찌그러뜨림
+- 낮은 해상도 Placeholder를 최종 Asset으로 유지
+
+개발 중 Placeholder는 허용하지만 최종 Presentation 기준에서는 Character Illustration/Sprite로 교체되어야 한다.
+
+============================================================
+65. NPC VISUAL SYSTEM — 2D ILLUSTRATION BASED
+============================================================
+
+NPC 표현은 World Representation과 Dialogue Representation으로 나눈다.
+
+World Representation:
+- 간단한 2D Sprite 또는 Billboard Sprite 사용 가능
+- 복잡한 3D Character Rigging은 MVP 필수 아님
+- 개발 중 Placeholder 3D Object 허용
+- NPC 구분, 위치, 상호작용 대상임을 알아볼 수 있어야 함
+
+Dialogue Representation:
+- Character Illustration 사용
+- 반신 일러스트 권장
+- 필요 시 표정 Variant 사용
+- 현재 화자 강조
+
+예:
+박성철: Default / Serious / Surprised / Laugh
+이서연: Default / Worried / Surprised / Relieved
+
+DialoguePage는 기존 규칙대로 하단 약 30~35%를 사용한다. Character Illustration은 좌우 가장자리에 배치하고 본문을 과도하게 침범하지 않는다. Preserve Aspect 필수, Stretch 금지.
+
+============================================================
+66. CHARACTER ASSET BINDING
+============================================================
+
+NPC 데이터는 화면 코드에 직접 이미지 경로를 하드코딩하지 않는다.
+
+권장 구조:
+CharacterDefinition
+- CharacterId
+- DisplayName
+- WorldSprite
+- DialogueDefault
+- DialogueExpressions
+- DefaultSide
+
+Dialogue System은 CharacterId와 ExpressionId를 통해 이미지를 선택한다. Asset 교체 시 Dialogue Logic 수정이 필요 없어야 한다.
+
+============================================================
+67. CHARACTER ASSET NAMING RULE
+============================================================
+
+권장:
+NPC_Seongcheol_Default
+NPC_Seongcheol_Serious
+NPC_Seongcheol_World
+NPC_Seoyeon_Default
+NPC_Seoyeon_Worried
+NPC_Seoyeon_Relieved
+NPC_Seoyeon_World
+BG_Workshop
+BG_Farm
+PROP_Pump_Broken
+PROP_Pump_Repaired
+
+동일 타입 Asset은 일관된 접두사를 유지한다.
+
+============================================================
+68. IMAGE IMPORT / REPLACEMENT POLICY
+============================================================
+
+Character/UI Illustration:
+- Texture Type: Sprite (2D and UI)
+- Preserve Aspect 사용
+- 과도한 Compression 금지
+- 원본보다 큰 UI 확대를 피함
+- Max Size가 원본 해상도를 불필요하게 낮추지 않게 설정
+- 픽셀아트가 아니면 Point Filter를 기본 사용하지 않음
+- 투명 PNG Alpha 유지
+
+저해상도 Placeholder는 개발 중에만 허용한다.
+
+FAIL:
+- NPC 얼굴이 눈에 띄게 깨짐
+- 확대 시 심한 픽셀화
+- Character Illustration Stretch
+- 원본보다 지나치게 확대
+
+PASS:
+- 현재 UI 크기에서 선명함
+- Aspect Ratio 유지
+- 창 크기 변경에도 심하게 찌그러지지 않음
+
+============================================================
+69. DISPLAY / RESOLUTION POLICY
+============================================================
+
+PC MVP UI Reference Resolution은 1920×1080으로 한다. 고정 출력 해상도를 의미하지 않으며 Layout 기준 해상도다.
+
+Unity Canvas Scaler 권장:
+UI Scale Mode: Scale With Screen Size
+Reference Resolution: 1920×1080
+Screen Match Mode: Match Width Or Height
+Match: 0.5
+
+UI 요소는 절대 좌표만으로 배치하지 않고 Anchor/Pivot을 목적에 맞게 사용한다.
+
+권장:
+DialoguePage = Bottom Stretch
+QuestTracker = Top Left
+Camera View Buttons = Top Right
+Lathe Bottom Control = Bottom Stretch
+Measurement Input = Bottom Center
+Toast = Top Center 또는 적절한 고정 위치
+
+============================================================
+70. ASPECT RATIO POLICY
+============================================================
+
+우선순위:
+1. 16:9
+2. 16:10
+3. 21:9
+4. 기타 비율은 핵심 UI가 잘리지 않는 수준으로 대응
+
+16:9 = 기준 Layout
+16:10 = Dialogue/QuestTracker/Lathe HUD/MeasurementPage 겹침 없어야 함
+21:9 = 모든 UI를 중앙으로 몰지 말고 좌우 Anchor 활용
+좁은 화면 = 핵심 버튼/텍스트가 화면 밖으로 잘리지 않아야 함
+
+============================================================
+71. PAGE SCALE RULES
+============================================================
+
+DialoguePage:
+- 해상도 변경 후에도 화면 높이 약 30~35% 비율 유지
+- NPC Illustration 찌그러짐 금지
+- 화자 이름/본문 겹침 금지
+- 한국어 긴 문장 자연스러운 줄바꿈
+
+LathePage:
+- Workpiece View 충분히 큼
+- X/Z Dial 접근 가능
+- Camera View Button 접근 가능
+- Bottom Control Bar 잘림 없음
+- QuestTracker가 Workpiece를 가리지 않음
+
+MeasurementPage:
+- 본척/부척 판독 가능
+- Jaw 위치 식별 가능
+- 측정 대상 Highlight 확인 가능
+- 입력 필드 접근 가능
+- 화면이 작아졌다고 정답 숫자로 대체 금지
+
+============================================================
+72. TEXT / FONT / SHARPNESS POLICY
+============================================================
+
+한국어 UI는 모든 기준 해상도에서 읽을 수 있어야 한다.
+- 한글 Glyph 지원 Font Asset
+- 버튼 Text Overflow 확인
+- Auto Size 남용 금지
+- 지나치게 작은 폰트 금지
+
+게임 전체가 흐릴 경우 다음을 Audit한다:
+- Game View Scale
+- URP Render Scale
+- Dynamic Resolution
+- Anti-Aliasing
+- Sprite Import Compression
+- Texture Max Size
+- Canvas Scaling
+- Fullscreen/Window Resolution
+
+원인을 확인하지 않고 무작정 전부 수정하지 않는다.
+URP를 사용한다면 Render Scale이 의도치 않게 낮아 전체 화면이 흐려지지 않는지 확인한다. 기본 목표는 1.0 수준이다.
+
+============================================================
+73. ASSET ROLE SEPARATION / MISSING ASSET FALLBACK
+============================================================
+
+Codex:
+- 코드
+- Prefab
+- Scene 연결
+- Asset Import 설정
+- UI Binding
+- State/Quest 연결
+- Scaling
+- 테스트
+
+External Image Assets:
+- NPC Illustration
+- World Sprite
+- Background Illustration
+- Prop Illustration
+- UI Icon
+
+에셋이 없으면 Codex는 저품질 이미지를 최종 결과물로 확정하지 않는다. 명확한 Placeholder 슬롯을 만들고, 나중에 Asset Reference만 교체할 수 있게 한다.
+
+============================================================
+74. ORTHOGRAPHIC PROJECTION — ABSOLUTE REQUIREMENT
+============================================================
+
+가공 화면의 4개 Camera View는 단순히 Perspective Camera의 위치와 각도만 바꾼 것이 아니다. Camera Projection 자체가 반드시 Orthographic이어야 한다.
+
+필수:
+Camera.orthographic = true 또는 동등한 Orthographic Projection 설정
+
+4 View:
+- Front / 정면
+- Top / 평면
+- Right / 우측면
+- Isometric / 등각투영
+
+모든 View는 Orthographic Projection을 사용한다.
+
+Orthographic의 의미:
+- 원근 축소가 없어야 함
+- 동일 크기의 형상은 화면 깊이에 따라 임의로 작아지지 않음
+- 형상 비교가 Perspective 왜곡에 영향을 받지 않음
+
+Isometric도 Perspective Camera를 비스듬히 둔 것이 아니라 Orthographic Camera를 등각 방향으로 배치한다.
+
+FAIL:
+- Perspective 상태에서 Front 각도만 변경
+- Perspective 상태에서 Top View 흉내
+- Perspective 상태의 Isometric-like View
+- FOV 조절로 Orthographic처럼 보이게 함
+
+PASS:
+- 실제 Orthographic Projection
+- View 전환마다 Projection 유지
+- 공작물 크기 비교 안정적
+- 마우스 휠 Zoom 없음
+- UI 버튼과 키보드가 동일 CameraView Command 호출
+
+============================================================
+75. v0.5 PRESENTATION PASS / FAIL
+============================================================
+
+PASS:
+1. NPC Dialogue가 Character Illustration을 받을 수 있는 구조
+2. Character 이미지 교체가 Dialogue Logic 수정 없이 가능
+3. Sprite Aspect Ratio 유지
+4. DialoguePage 하단 30~35% 규칙 유지
+5. 1920×1080 Reference Resolution 사용
+6. Canvas Scaler = Scale With Screen Size
+7. Anchor 기반 UI 배치
+8. 16:9 UI 겹침 없음
+9. 16:10 핵심 UI 겹침 없음
+10. 21:9에서 핵심 UI가 중앙에 과도하게 몰리지 않음
+11. Lathe Workpiece View가 UI에 가려지지 않음
+12. Measurement Vernier가 충분히 큼
+13. 한국어 Text가 잘리지 않음
+14. 저해상도 Placeholder가 최종 Asset 취급되지 않음
+15. 이미지가 찌그러지지 않음
+16. 화면이 흐릴 경우 Render/UI 설정 원인을 Audit
+17. 4개 가공 View 모두 실제 Orthographic Projection
+
+FAIL:
+1. NPC Capsule을 그대로 최종 사용
+2. Character Illustration Stretch
+3. 저해상도 Placeholder를 크게 확대해 최종 사용
+4. UI를 고정 Pixel Position만으로 배치
+5. 창 크기 변경 시 Dialogue/Quest/Lathe UI 겹침
+6. Measurement Vernier 판독 불가
+7. 해상도 문제를 숫자 정답 표시로 우회
+8. 영어 코드 식별자가 UI로 노출
+9. 제공 Asset이 있는데 Placeholder 계속 사용
+10. Perspective Camera로 Orthographic View 흉내
+
+============================================================
+76. v0.5 CODEX IMPLEMENTATION RULE
+============================================================
+
+Codex는 전체 프로젝트를 다시 만들지 않는다.
+
+순서:
+1. 현재 Project Audit
+2. v0.5와 충돌하는 구현 목록화
+3. 기존 기능 최대한 보존
+4. 최소 변경으로 구조 개선
+5. Character Asset Slot 추가
+6. Dialogue Illustration 연결 구조 구현
+7. Canvas/Resolution 정책 확인
+8. Anchor/Pivot 문제 수정
+9. Sprite Import 문제 수정
+10. Orthographic Camera 여부 확인
+11. Quest UI 크기 재확인
+12. Measurement 가독성 재확인
+13. Workshop/Farm/Pump Presentation 확인
+14. 컴파일
+15. Play Mode 테스트
+16. PASS/FAIL 보고
+
+구현 후 반드시 보고:
+- 변경한 파일
+- 변경 이유
+- Scene/Prefab 변경 사항
+- 새 Asset Slot
+- 현재 Placeholder Asset 목록
+- Resolution Test 결과
+- 16:9 Test 결과
+- 16:10 Test 결과
+- Orthographic Camera 확인 결과
+- Measurement UI 확인 결과
+- 남은 FAIL 항목
+
+============================================================
+77. v0.5 FINAL SOURCE OF TRUTH RULE
+============================================================
+
+Last_Machinist_MVP_Development_Spec_v0.5.txt는 Last Machinist MVP의 최신 단일 구현 기준서다.
+
+우선순위:
+Section 64~77의 v0.5 신규/수정 규칙
+> Section 60~63의 통합 측정/환경/완료 규칙
+> Section 40 이후의 상세 재정의
+> 그보다 앞선 기존 MVP 규칙
+
+충돌 시 더 최신이고 더 구체적인 요구사항을 우선한다.
+별도 과거 문서는 참고 이력으로만 사용한다.
+
+============================================================
+v0.6 신규 정책 통합 구간
+============================================================
+
+============================================================
+78. v0.6 TITLE / DAY / QUEST DISPLAY POLICY
+============================================================
+
+게임의 제목, DAY/Chapter 표시, Quest 제목은 서로 다른 정보 계층이다.
+
+이 세 종류의 텍스트를 하나의 타이틀 카드처럼 합쳐 표시하지 않는다.
+
+------------------------------------------------------------
+78.1 GAME TITLE
+------------------------------------------------------------
+
+게임 시작 직후 표시 가능한 게임 제목:
+
+LAST MACHINIST
+
+이 시점에는 Quest 제목을 표시하지 않는다.
+
+금지 예:
+
+LAST MACHINIST
+멈춰버린 펌프
+
+LAST MACHINIST
+QUEST 01
+멈춰버린 펌프
+
+게임 제목 아래에 현재 Quest 제목을 자동으로 붙이지 않는다.
+
+------------------------------------------------------------
+78.2 DAY / LOCATION TITLE
+------------------------------------------------------------
+
+게임 제목 이후 별도의 화면 또는 짧은 타이틀 연출로 표시한다.
+
+예:
+
+DAY 1
+삼촌의 작업장
+
+권장 순서:
+
+검은 화면
+↓
+LAST MACHINIST
+↓
+Fade
+↓
+DAY 1
+삼촌의 작업장
+↓
+Workshop Scene 시작
+
+DAY/Location Title은 Quest Title이 아니다.
+
+금지:
+
+DAY 1
+멈춰버린 펌프
+
+처럼 DAY와 Quest를 하나의 챕터 제목처럼 합쳐 표시하는 것.
+
+------------------------------------------------------------
+78.3 QUEST TITLE
+------------------------------------------------------------
+
+Quest 제목은 해당 Quest가 실제로 발생하거나
+플레이어가 수락/활성화한 뒤에만 표시한다.
+
+첫 Quest의 경우:
+
+이서연 등장
+↓
+펌프 문제 설명
+↓
+Quest 활성화
+↓
+QuestPopup 표시
+
+표시 예:
+
+의뢰 시작
+「멈춰버린 펌프」
+
+QuestPopup은 일시적이다.
+그 이후에는 작은 QuestTracker만 남는다.
+
+------------------------------------------------------------
+78.4 QUEST TITLE PREMATURE REVEAL 금지
+------------------------------------------------------------
+
+첫 게임 시작 직후에는
+"멈춰버린 펌프"를 보여주지 않는다.
+
+플레이어가 아직 이서연을 만나지 않았고
+펌프 문제를 알지 못하는 시점에는 Quest 정보를 공개하지 않는다.
+
+이는 UI 정리뿐 아니라 스토리 순서 보존 규칙이다.
+
+============================================================
+79. TITLE SEQUENCE PASS / FAIL
+============================================================
+
+PASS:
+
+1. 최초 실행:
+   LAST MACHINIST
+
+2. 이후:
+   DAY 1
+   삼촌의 작업장
+
+3. Workshop에서 박성철 Intro 진행
+
+4. 이서연 등장 및 사건 발생
+
+5. 그 뒤:
+   의뢰 시작
+   「멈춰버린 펌프」
+
+FAIL:
+
+- 최초 실행부터 "멈춰버린 펌프" 표시
+- LAST MACHINIST 밑에 Quest 제목 표시
+- DAY 1 밑에 Quest 제목 표시
+- Quest가 활성화되기 전 QuestTracker 표시
+- Quest 제목을 게임 부제처럼 사용
+
+============================================================
+80. EXTERNAL ASSET ROOT FOLDER POLICY
+============================================================
+
+사용자가 외부에서 추가하는 이미지 Asset은
+Unity Project 안의 고정된 External Asset Root에 넣는다.
+
+권장 절대 기준 경로:
+
+Assets/_Project/Art/External/
+
+이 폴더는:
+- 사용자가 직접 넣은 이미지
+- ChatGPT 등 외부 제작 이미지
+- 외부에서 가져온 임시/최종 이미지
+
+를 모아두는 전용 공간이다.
+
+Codex가 생성하는 Script/Prefab/Scene 파일과 섞지 않는다.
+
+금지:
+
+Assets/
+루트에 PNG를 바로 흩뿌리기
+
+Assets/Scripts/
+에 이미지 넣기
+
+Assets/Resources/
+에 모든 이미지를 무조건 넣기
+
+임의의 Temp 폴더 여러 개에 같은 캐릭터 중복 저장
+
+============================================================
+81. EXTERNAL ASSET FOLDER STRUCTURE
+============================================================
+
+기본 구조:
+
+Assets/_Project/Art/External/
+├─ Characters/
+│  ├─ NPC/
+│  │  ├─ Seongcheol/
+│  │  │  ├─ Dialogue/
+│  │  │  └─ World/
+│  │  ├─ Seoyeon/
+│  │  │  ├─ Dialogue/
+│  │  │  └─ World/
+│  │  ├─ Jaehyeon/
+│  │  │  ├─ Dialogue/
+│  │  │  └─ World/
+│  │  └─ Mijeong/
+│  │     ├─ Dialogue/
+│  │     └─ World/
+│  │
+│  └─ Player/
+│
+├─ Backgrounds/
+│  ├─ Workshop/
+│  ├─ Farm/
+│  └─ Common/
+│
+├─ Props/
+│  ├─ Pump/
+│  ├─ Workshop/
+│  ├─ Farm/
+│  └─ Common/
+│
+├─ UI/
+│  ├─ Icons/
+│  ├─ Dialogue/
+│  ├─ Quest/
+│  ├─ Inventory/
+│  └─ Measurement/
+│
+└─ Temporary/
+   └─ Placeholder/
+
+------------------------------------------------------------
+81.1 NPC FOLDER
+------------------------------------------------------------
+
+NPC마다 자기 폴더를 가진다.
+
+예:
+
+Assets/_Project/Art/External/Characters/NPC/Seongcheol/
+Assets/_Project/Art/External/Characters/NPC/Seoyeon/
+
+각 NPC 아래:
+
+Dialogue/
+World/
+
+로 분리한다.
+
+Dialogue:
+- 대화용 전신/반신 Illustration
+- 표정 Variant
+
+World:
+- 월드에서 사용할 Sprite
+- Billboard
+- 간단한 Character Sprite
+
+------------------------------------------------------------
+81.2 BACKGROUND FOLDER
+------------------------------------------------------------
+
+Background는 Scene 단위로 정리한다.
+
+예:
+
+Backgrounds/Workshop/
+Backgrounds/Farm/
+
+Workshop 배경을 Farm 폴더에 넣지 않는다.
+
+------------------------------------------------------------
+81.3 PROP FOLDER
+------------------------------------------------------------
+
+Quest 핵심 오브젝트는 별도 폴더 사용.
+
+예:
+
+Props/Pump/
+
+내부 예:
+
+PROP_Pump_Broken.png
+PROP_Pump_Repaired.png
+
+------------------------------------------------------------
+81.4 TEMPORARY FOLDER
+------------------------------------------------------------
+
+완전히 임시인 이미지는:
+
+Assets/_Project/Art/External/Temporary/Placeholder/
+
+에 둔다.
+
+최종 에셋과 Placeholder를 같은 폴더에서 섞지 않는다.
+
+============================================================
+82. IMAGE FILE NAMING CONVENTION
+============================================================
+
+파일명은 나중에 사람이 폴더를 열었을 때
+무슨 이미지인지 바로 알 수 있게 한다.
+
+기본 형식:
+
+<CATEGORY>_<SUBJECT>_<VARIANT>_<STATE>.png
+
+필요하지 않은 항목은 생략할 수 있다.
+
+모든 이름은:
+- 영문
+- PascalCase 또는 일관된 Camel/Pascal 조합
+- 공백 없음
+- 한글 파일명 지양
+- 의미 없는 숫자만 사용 금지
+
+------------------------------------------------------------
+82.1 NPC DIALOGUE IMAGE
+------------------------------------------------------------
+
+형식:
+
+NPC_<Name>_Dialogue_<Expression>.png
+
+예:
+
+NPC_Seongcheol_Dialogue_Default.png
+NPC_Seongcheol_Dialogue_Serious.png
+NPC_Seongcheol_Dialogue_Laugh.png
+
+NPC_Seoyeon_Dialogue_Default.png
+NPC_Seoyeon_Dialogue_Worried.png
+NPC_Seoyeon_Dialogue_Relieved.png
+
+------------------------------------------------------------
+82.2 NPC WORLD IMAGE
+------------------------------------------------------------
+
+형식:
+
+NPC_<Name>_World_<Variant>.png
+
+예:
+
+NPC_Seongcheol_World_Default.png
+NPC_Seoyeon_World_Default.png
+
+방향 Sprite를 사용할 경우:
+
+NPC_Seoyeon_World_Front.png
+NPC_Seoyeon_World_Back.png
+NPC_Seoyeon_World_Left.png
+NPC_Seoyeon_World_Right.png
+
+------------------------------------------------------------
+82.3 BACKGROUND IMAGE
+------------------------------------------------------------
+
+형식:
+
+BG_<Location>_<Variant>.png
+
+예:
+
+BG_Workshop_Default.png
+BG_Workshop_Night.png
+BG_Farm_Default.png
+
+------------------------------------------------------------
+82.4 PROP IMAGE
+------------------------------------------------------------
+
+형식:
+
+PROP_<Object>_<State>.png
+
+예:
+
+PROP_Pump_Broken.png
+PROP_Pump_Repaired.png
+PROP_Pump_Inspect.png
+
+------------------------------------------------------------
+82.5 UI IMAGE
+------------------------------------------------------------
+
+형식:
+
+UI_<System>_<Purpose>.png
+
+예:
+
+UI_Quest_New.png
+UI_Quest_Complete.png
+UI_Inventory_ItemSlot.png
+UI_Measurement_Record.png
+UI_Dialogue_Next.png
+
+============================================================
+83. CURRENT MVP NPC ASSET NAME STANDARD
+============================================================
+
+현재 MVP에서 우선 필요한 NPC:
+
+박성철
+→ internal id: Seongcheol
+
+이서연
+→ internal id: Seoyeon
+
+최재현
+→ internal id: Jaehyeon
+
+한미정
+→ internal id: Mijeong
+
+현재 우선순위:
+
+1. Seongcheol
+2. Seoyeon
+3. 나머지는 실제 등장 구현 시 추가
+
+현재 확보한 기본 이미지가 있을 경우
+다음 이름으로 정리하는 것을 권장한다.
+
+박성철:
+NPC_Seongcheol_Dialogue_Default.png
+
+이서연:
+NPC_Seoyeon_Dialogue_Default.png
+
+월드 이미지가 별도로 없으면
+Dialogue 이미지를 임시로 World에 재사용하지 말고
+명시적 Placeholder Slot을 사용한다.
+
+============================================================
+84. IMAGE TECHNICAL FORMAT POLICY
+============================================================
+
+현재 NPC/게임용 외부 이미지 기본 규칙:
+
+Format:
+PNG
+
+Background:
+Transparent
+(배경 이미지 자체는 예외)
+
+NPC 기본 Canvas:
+512 × 512 권장
+
+중요:
+512 × 512는 파일 Canvas 기준이다.
+
+캐릭터가 정사각형으로 찌그러져야 한다는 뜻이 아니다.
+
+- 투명 여백 허용
+- 원본 비율 유지
+- Preserve Aspect
+- Stretch 금지
+
+캐릭터가 512×512 안에서 잘리면
+무리하게 확대하지 말고 여백을 조정한다.
+
+------------------------------------------------------------
+84.1 DIALOGUE ILLUSTRATION COMPOSITION
+------------------------------------------------------------
+
+Dialogue Illustration은 반드시
+DialoguePanel 내부에만 들어갈 필요가 없다.
+
+권장 구조:
+
+Scene / Background Layer
++
+Character Illustration Layer
++
+Bottom Dialogue Layer
+
+즉:
+
+캐릭터 일러스트는 화면 좌측/우측에 별도 배치 가능.
+Dialogue Box는 하단 약 30~35% 독립 영역.
+
+Character Illustration을 DialogueBox 내부 작은 아이콘처럼
+강제로 축소할 필요 없다.
+
+============================================================
+85. CODEX ASSET DISCOVERY / BINDING RULE
+============================================================
+
+Codex는 외부 이미지 Asset을 사용할 때
+파일명을 코드에 난잡하게 하드코딩하지 않는다.
+
+권장:
+
+CharacterDefinition
+ScriptableObject
+또는 동등한 Asset Binding Data
+
+예:
+
+CharacterId = character_seongcheol
+DisplayName = 박성철
+DialogueDefault = NPC_Seongcheol_Dialogue_Default
+WorldDefault = NPC_Seongcheol_World_Default
+
+Quest/Dialogue Script는:
+
+"박성철이면 이 PNG를 로드"
+
+식으로 직접 처리하지 않는다.
+
+Dialogue Logic:
+CharacterId
++
+ExpressionId
+
+만 전달한다.
+
+Asset Resolver가 실제 Sprite를 연결한다.
+
+------------------------------------------------------------
+85.1 MISSING ASSET
+------------------------------------------------------------
+
+필요한 Asset이 없으면 Codex는:
+
+1. Missing 여부를 보고한다.
+2. Placeholder Slot을 사용한다.
+3. 예상 파일명을 알려준다.
+4. 임의의 저품질 최종 이미지를 만들어 완료 처리하지 않는다.
+
+예:
+
+Missing:
+NPC_Seoyeon_Dialogue_Worried.png
+
+Fallback:
+NPC_Seoyeon_Dialogue_Default.png
+
+이 경우 Console/Error Popup을 플레이어에게 보여줄 필요는 없다.
+개발자 로그로 남길 수 있다.
+
+============================================================
+86. ASSET REPLACEMENT WORKFLOW
+============================================================
+
+사용자가 새 이미지를 추가하면
+권장 작업은 다음과 같다.
+
+예:
+
+Assets/_Project/Art/External/
+Characters/NPC/Seoyeon/Dialogue/
+NPC_Seoyeon_Dialogue_Worried.png
+
+추가
+
+↓
+Unity Import
+
+↓
+Sprite (2D and UI)
+
+↓
+CharacterDefinition에서 Worried Expression Slot에 연결
+
+↓
+Dialogue에서 expression = worried 호출
+
+코드를 수정하지 않고 이미지 교체/추가가 가능해야 한다.
+
+동일 이름의 Asset을 교체하는 경우에도
+가능하면 기존 Reference를 유지한다.
+
+============================================================
+87. v0.6 CODEX FINAL RULES
+============================================================
+
+Codex는 v0.6 적용 시 다음을 확인한다.
+
+TITLE:
+- 시작 시 LAST MACHINIST 아래 Quest 제목 없음
+- DAY 1 / 삼촌의 작업장 분리
+- Quest 발생 후에만 멈춰버린 펌프 표시
+
+ASSET:
+- External Root가 존재
+- Characters / Backgrounds / Props / UI 구분
+- NPC별 폴더 구분
+- Dialogue / World 구분
+- Naming Convention 적용
+- Placeholder와 Final Asset 구분
+
+NPC:
+- 일러스트는 DialogueBox 내부에 강제되지 않음
+- 별도 Character Layer 사용 가능
+- Preserve Aspect
+- 투명 배경 유지
+- 512×512 Canvas 이미지 사용 가능
+
+CODE:
+- 이미지 파일명을 Quest Logic에 하드코딩하지 않음
+- CharacterDefinition 또는 동등한 Binding Layer 사용
+- Missing Asset은 Fallback
+- 외부 이미지 교체 시 코드 수정 최소화
+
+완료 보고 시 반드시:
+
+- 새로 만든 Asset 폴더
+- 연결된 이미지 목록
+- Missing 이미지 목록
+- Placeholder 목록
+- Character Binding 상태
+- Title Sequence PASS/FAIL
+- Quest Title 표시 시점 PASS/FAIL
+
+을 보고한다.
+
+============================================================
+88. v0.6 FINAL SOURCE OF TRUTH RULE
+============================================================
+
+본 문서:
+
+Last_Machinist_MVP_Development_Spec_v0.6.txt
+
+는 Last Machinist MVP의 최신 단일 구현 기준서다.
+
+우선순위:
+
+Section 78~87의 v0.6 신규/수정 규칙
+>
+Section 64~77의 v0.5 신규/수정 규칙
+>
+Section 60~63의 통합 측정/환경/완료 규칙
+>
+Section 40 이후 상세 재정의
+>
+그보다 앞선 기존 MVP 규칙
+
+충돌 시
+더 최신이고 더 구체적인 규칙을 우선한다.
+
+============================================================
+v0.7 신규 정책 통합 구간
+============================================================
+
+============================================================
+89. v0.7 LATHE HANDWHEEL / DIAL UI REDEFINITION
+============================================================
+
+현재 구현에서 "다이얼"이라고 적힌 단순 버튼은
+최종 Lathe Control로 인정하지 않는다.
+
+X축과 Z축은 실제로 회전 조작할 수 있는
+원형 Handwheel / Dial UI로 표현한다.
+
+필수:
+- X Handwheel과 Z Handwheel은 서로 독립
+- 원형 조작기처럼 보여야 함
+- 마우스 드래그 또는 회전 제스처로 조작 가능
+- 마우스 휠 입력과 동일 Command Layer 사용
+- 키보드 입력도 동일 Command Layer 사용
+- 회전 시각 피드백 존재
+
+금지:
+- [X 다이얼] 텍스트 버튼
+- [Z 다이얼] 텍스트 버튼
+- 단순 + / - 버튼만 제공
+- Dial이라고 이름만 붙이고 회전하지 않음
+
+PASS:
+- 원형 UI가 실제 회전
+- 회전량에 따라 해당 축 이동
+- X/Z 각각 독립
+- 축/배율 상태 연동
+
+============================================================
+90. v0.7 QUEST UI LAYER / VISIBILITY RULE
+============================================================
+
+Quest UI가 다른 UI 뒤에서 애매하게 반쯤 가려진 상태로 남는 것을 금지한다.
+
+Quest UI는 계속 다음 세 역할로 분리한다:
+1. QuestPopup
+2. QuestTracker
+3. QuestLogPage
+
+Modal UI가 열릴 때 QuestTracker는 다음 중 하나로 처리:
+A. 완전히 숨김
+B. 명확히 Dim 처리
+C. Modal 밖의 안전한 영역으로 재배치
+
+절대 금지:
+- 다른 Panel 뒤에서 글자 일부만 보임
+- Quest 창 테두리만 뒤에 남음
+- Modal과 겹쳐 내용이 반쯤 잘림
+- Lathe/Measurement UI 위에 Quest Panel이 겹침
+
+Modal이 열리면 하위 UI의 Visibility 상태를 명시적으로 제어한다.
+
+============================================================
+91. v0.7 MACHINING ↔ MEASUREMENT LOOP — ABSOLUTE REQUIREMENT
+============================================================
+
+가공 중 반복 측정은 Last Machinist의 핵심 플레이 루프다.
+
+"가공이 끝난 뒤 최종 검사에서만 측정" 구조는 금지한다.
+
+반드시 다음 흐름을 지원한다.
+
+가공
+→ 주축 정지
+→ 측정
+→ 버니어 직접 판독
+→ 값 기록
+→ 같은 공작물 상태로 가공 복귀
+→ 추가 가공
+→ 재측정
+
+측정 전후에 Workpiece Geometry가 유지되어야 한다.
+
+측정 화면 진입/복귀 때문에 다음이 초기화되면 FAIL:
+- Workpiece Geometry
+- Tool Position
+- Reclamp State
+- ProcessHistory
+
+Machining 상태에서도 조건 만족 시 MeasurementPage 진입 가능:
+- Workpiece Mounted
+- 주축 정지
+- 측정기 보유
+- 측정 가능한 MeasurementPoint 존재
+
+동일 MeasurementPoint 반복 측정 가능.
+
+예:
+L1 직경 1차 기록 41.2
+→ 추가 가공
+→ 2차 기록 40.4
+→ 추가 가공
+→ 3차 기록 40.1
+
+측정 후 게임이 "0.2 mm 더 깎으세요"처럼 직접 정답을 알려주면 안 된다.
+
+============================================================
+92. v0.7 OBJECT SILHOUETTE / IDENTIFIABILITY REQUIREMENT
+============================================================
+
+Pump, Tool, Workpiece 등 핵심 오브젝트는
+이름표를 가려도 무엇인지 대략 알아볼 수 있어야 한다.
+
+PUMP 최소 식별 요소:
+- Motor Section
+- Pump Body
+- Shaft / Coupling Area
+- Inlet / Outlet Pipe
+- Base / Frame
+
+금지:
+- Cube + Cylinder 몇 개
+- 배관 없는 회색 덩어리
+- 축 위치를 알 수 없는 형태
+
+LATHE TOOL:
+황삭 바이트와 모따기 바이트는 색만 다른 동일 Mesh로 만들지 않는다.
+실루엣 차이가 있어야 한다.
+
+WORKPIECE:
+Pump Shaft는 L1/L2/L3 3단 구조가 읽혀야 한다.
+중앙 L2가 더 굵다는 점이 직교 View에서 명확해야 한다.
+Broken Shaft의 L3 Wear도 시각적으로 반대편과 차이가 보여야 한다.
+
+SILHOUETTE TEST:
+UI 이름표/Item Name/Debug Text를 숨긴 스크린샷만 보고
+
+PASS:
+- Pump인지 구분 가능
+- Roughing / Chamfer Tool 구분 가능
+- 3단 Shaft인지 구분 가능
+
+FAIL:
+- 이름표 없으면 무엇인지 모름
+- 공구가 모두 같은 막대
+- Pump가 랜덤 Primitive 조합처럼 보임
+
+============================================================
+93. v0.7 NPC UPPER-BODY FRAMING RULE
+============================================================
+
+Dialogue Scene에서 NPC Illustration은
+전신 전체를 작게 보여주는 것을 우선하지 않는다.
+
+하반신이 DialoguePage에 가려져도 괜찮다.
+
+대신:
+- 얼굴
+- 어깨
+- 상반신
+- 표정
+이 충분히 크게 보여야 한다.
+
+권장:
+Character Illustration 높이 = 화면 세로의 약 55~70% 수준에서 조정
+
+레이어:
+Background Scene
+↓
+Character Illustration Layer
+↓
+DialoguePage
+
+DialoguePage가 NPC 하반신 일부를 가리는 것은 허용.
+
+금지:
+- 전신을 전부 보여주려고 NPC를 너무 작게 축소
+- 얼굴이 작아 표정 구분 어려움
+- NPC를 DialogueBox 안 작은 Portrait 수준으로 강제
+- Dialogue Text와 얼굴이 겹침
+
+화자 강조:
+- 현재 화자 정상 밝기
+- 비화자 약간 어둡게 가능
+- Fade/Slide 연출 가능
+
+============================================================
+94. v0.7 BACKGROUND IMAGE + INTERACTIVE PROP LAYER POLICY
+============================================================
+
+Workshop / Farm 등 핵심 장소의 배경은 외부 이미지 Asset을 사용할 수 있다.
+
+권장 구조:
+
+Background Image
++
+Interactive Prop Layer
++
+NPC Layer
++
+UI Layer
+
+Background 담당:
+- 장소 분위기
+- 작업장/농장 정체성
+- 벽/바닥/원경
+- 비상호작용 소품
+- 시각적 밀도
+
+Interactive Prop로 유지:
+Workshop:
+- Lathe
+- Workbench
+- Material Storage
+- Uncle Note / Book
+
+Farm:
+- Pump
+- Inspection Point
+- Water System state element
+
+Pump는 Quest 핵심 오브젝트이므로 배경 한 장 속에 완전히 고정된 그림으로만 처리하지 않는다.
+
+최소:
+PROP_Pump_Broken
+PROP_Pump_Repaired
+
+또는 동등한 상태 전환 가능한 Prop 구조.
+
+v0.6 폴더 규칙 유지:
+Assets/_Project/Art/External/Backgrounds/Workshop/
+Assets/_Project/Art/External/Backgrounds/Farm/
+Assets/_Project/Art/External/Props/Pump/
+
+예:
+BG_Workshop_Default.png
+BG_Farm_Default.png
+PROP_Pump_Broken.png
+PROP_Pump_Repaired.png
+
+============================================================
+95. v0.7 PATCH PRIORITY / FINAL ACCEPTANCE
+============================================================
+
+PATCH 1
+Lathe Handwheel UI
+- 텍스트 "다이얼" 버튼 제거
+- 실제 회전 가능한 X/Z Dial 구현
+
+PATCH 2
+Quest UI Visibility
+- Modal 뒤에 반쯤 남는 Quest UI 제거
+- Tracker / Popup / Log Layer 정리
+
+PATCH 3
+Machining ↔ Measurement Loop
+- Machining 중 반복 측정
+- 측정 후 동일 Workpiece 상태 복귀
+
+PATCH 4
+Object Identifiability
+- Pump
+- Roughing Tool
+- Chamfer Tool
+- Pump Shaft
+
+PATCH 5
+NPC Upper-body Framing
+- 상반신 크게
+- 하반신 DialoguePage에 가려지는 것 허용
+
+PATCH 6
+Background Asset Layer
+- Workshop / Farm Background Image 지원
+- Interactive Prop 분리
+
+FINAL PASS:
+1. X/Z Dial이 진짜 회전 조작기다.
+2. "다이얼"이라는 텍스트 버튼만 있는 구현이 아니다.
+3. Quest UI가 Modal 뒤에서 반쯤 보이지 않는다.
+4. Machining 중 측정 가능하다.
+5. 측정 후 동일 Workpiece 상태로 돌아온다.
+6. 반복 측정 가능하다.
+7. Pump 형태를 이름 없이 알아볼 수 있다.
+8. Roughing / Chamfer Tool 실루엣이 다르다.
+9. Pump Shaft 3단 형상이 읽힌다.
+10. NPC 상반신이 충분히 크게 보인다.
+11. NPC 하반신이 DialoguePage에 가려져도 Layout이 자연스럽다.
+12. Background Image를 외부 에셋으로 사용할 수 있다.
+13. Interactive Prop은 Background와 분리된다.
+14. Pump Broken / Repaired 상태 전환이 가능하다.
+15. 기존 v0.6의 측정/직교투영/한국어/에셋 규칙을 깨지 않는다.
+
+============================================================
+96. v0.7 FINAL SOURCE OF TRUTH RULE
+============================================================
+
+본 문서:
+Last_Machinist_MVP_Development_Spec_v0.7.txt
+
+는 Last Machinist MVP의 최신 단일 구현 기준서다.
+
+우선순위:
+Section 89~95의 v0.7 신규/수정 규칙
+>
+Section 78~88의 v0.6 신규/수정 규칙
+>
+Section 64~77의 v0.5 신규/수정 규칙
+>
+Section 60~63의 통합 측정/환경/완료 규칙
+>
+Section 40 이후 상세 재정의
+>
+그보다 앞선 기존 MVP 규칙
+
+충돌 시 더 최신이고 더 구체적인 규칙을 우선한다.
+
+============================================================
+v0.8 신규 정책 통합 구간
+============================================================
+
+============================================================
+97. v0.8 LATHE HANDWHEEL — IMAGE ASSET BASED FINAL VISUAL RULE
+============================================================
+
+v0.7에서 정의한 "실제 회전 가능한 X/Z Handwheel" 기능은 유지한다.
+
+단, 최종 Handwheel 외형은
+Unity 기본 도형, 단순 Vector Graphic, Primitive 원형 UI를
+코드로 조합한 모습으로 완료 처리하지 않는다.
+
+최종 시각 표현은 외부 PNG 이미지 Asset을 기반으로 한다.
+
+핵심 분리:
+
+IMAGE ASSET
+→ Handwheel의 외형 담당
+
+CODE
+→ 회전 입력
+→ 회전 Animation
+→ Axis 이동량 계산
+→ Command 전달
+
+즉:
+
+"이미지처럼 보이는 버튼"
+이 아니라
+
+"이미지 Asset으로 만든 실제 회전 조작기"
+
+여야 한다.
+
+------------------------------------------------------------
+97.1 HANDWHEEL VISUAL COMPONENTS
+------------------------------------------------------------
+
+권장 구성:
+
+A. Handwheel Wheel
+- 실제 회전하는 원형 휠 본체
+
+B. Handle / Grip
+- 휠 가장자리에 붙은 손잡이
+- Wheel과 함께 회전하거나 별도 Child로 연결
+
+C. Fixed Base / Mount
+- 기계에 고정된 베이스
+- 회전하지 않음
+
+D. Optional Scale / Dial Plate
+- 필요할 경우 고정 또는 별도 회전
+- MVP에서 과도하게 복잡한 실제 눈금 구현은 필수 아님
+
+E. Axis Label
+- X 또는 Z
+- 이미지에 직접 구워 넣기보다 UI Text로 분리 권장
+
+------------------------------------------------------------
+97.2 ASSET DIRECTION MUST MATCH
+------------------------------------------------------------
+
+선반 Handwheel에 쓰이는 모든 이미지 Asset은
+같은 카메라 방향과 같은 시점으로 통일한다.
+
+기본 방향:
+
+정면(Front-facing)
+
+필수:
+- Wheel을 정면에서 봄
+- Handle도 정면 기준
+- Base도 정면 기준
+- X/Z에서 동일한 시각 방향 사용
+- 서로 다른 Perspective 각도를 섞지 않음
+
+금지:
+- Wheel은 정면인데 Handle은 측면
+- Base는 사선 Perspective
+- X Handwheel과 Z Handwheel의 시점이 서로 다름
+- 이미지마다 광원 방향이 심하게 달라 조립했을 때 따로 노는 느낌
+
+목표:
+부품을 겹쳤을 때 하나의 기계 조작부처럼 보여야 한다.
+
+------------------------------------------------------------
+97.3 TRANSPARENT IMAGE ASSET
+------------------------------------------------------------
+
+Handwheel 구성 부품은 기본적으로:
+
+PNG
+Transparent Background
+
+사용을 권장한다.
+
+예:
+
+UI_Lathe_Handwheel_Wheel.png
+UI_Lathe_Handwheel_Handle.png
+UI_Lathe_Handwheel_Base.png
+
+필요하면:
+
+UI_Lathe_Handwheel_Scale.png
+UI_Lathe_Handwheel_CenterCap.png
+
+외부 에셋 위치:
+
+Assets/_Project/Art/External/UI/Lathe/Handwheel/
+
+------------------------------------------------------------
+97.4 X / Z HANDWHEEL ASSET REUSE
+------------------------------------------------------------
+
+X와 Z Handwheel의 디자인이 같다면
+동일 이미지 Asset을 재사용할 수 있다.
+
+예:
+
+UI_Lathe_Handwheel_Wheel.png
+
+을 X/Z 양쪽에서 공통 사용하고
+
+X / Z 표시는 별도 UI Text 또는 Label로 구분한다.
+
+불필요하게 동일 이미지를
+_X / _Z로 복제하지 않는다.
+
+단,
+실제 화면상 크기나 배치가 다르면
+Prefab 설정만 별도로 둘 수 있다.
+
+------------------------------------------------------------
+97.5 PIVOT / ROTATION
+------------------------------------------------------------
+
+Wheel Image의 Pivot은
+실제 회전 중심과 일치해야 한다.
+
+권장:
+
+Pivot = Center
+
+Handle이 Wheel의 Child일 경우:
+Wheel Parent가 회전하면 Handle도 함께 회전한다.
+
+구조 예:
+
+LatheHandwheel_X
+├─ BaseImage        (Fixed)
+├─ RotatingGroup
+│  ├─ WheelImage
+│  └─ HandleImage
+└─ AxisLabel        (Fixed)
+
+RotatingGroup만 회전한다.
+
+Z축도 동일 구조를 사용한다.
+
+------------------------------------------------------------
+97.6 HANDWHEEL INPUT
+------------------------------------------------------------
+
+기능은 v0.7 규칙을 유지한다.
+
+허용:
+- Mouse Drag
+- Circular Drag
+- Mouse Wheel
+- Keyboard
+- 미래 Touch
+
+모든 입력은:
+
+LatheInputRouter
+→ ApplyHandwheelDelta(Axis, delta)
+
+동일 Command Layer를 사용한다.
+
+이미지 에셋으로 교체했다고
+기존 회전 기능이 사라지면 FAIL.
+
+------------------------------------------------------------
+97.7 HANDWHEEL VISUAL PASS / FAIL
+------------------------------------------------------------
+
+PASS:
+- 공작기계 Handwheel로 바로 인식됨
+- X/Z 방향 통일
+- PNG 투명 배경
+- 회전 중심 자연스러움
+- Handle이 Wheel과 함께 움직임
+- Base는 고정
+- 기존 축 이동 기능 정상
+
+FAIL:
+- "다이얼"이라고 적힌 버튼
+- 기본 Unity 원형 Panel 같은 외형
+- Wheel/Handle/Base 시점이 각각 다름
+- 회전 시 중심이 흔들림
+- 이미지 전체가 회전하면서 X/Z Label까지 돌아감
+- 이미지 적용 후 기능이 버튼 클릭 방식으로 퇴보
+
+============================================================
+98. v0.8 QUESTTRACKER — CURRENT ACTION ONLY
+============================================================
+
+QuestTracker는 Quest 전체 단계를
+1, 2, 3, 4 형식의 고정 번호 목록으로 상시 보여주지 않는다.
+
+QuestTracker의 역할은:
+
+"플레이어가 지금 다음으로 무엇을 해야 하는가"
+
+를 짧게 보여주는 것이다.
+
+QuestLogPage의 역할은:
+
+- Quest 전체 설명
+- 이전 진행 내용
+- 필요할 경우 완료된 단계
+- 상세 정보
+
+를 확인하는 것이다.
+
+따라서:
+
+QuestTracker != Quest Checklist
+
+------------------------------------------------------------
+98.1 QUESTTRACKER DISPLAY FORMAT
+------------------------------------------------------------
+
+권장 표시:
+
+멈춰버린 펌프
+
+현재 목표
+서연의 농장으로 이동하자.
+
+또는 더 작게:
+
+멈춰버린 펌프
+서연의 농장으로 이동하자.
+
+상시 표시하는 목표 문장은
+기본적으로 하나다.
+
+금지:
+
+멈춰버린 펌프
+1. 농장으로 이동
+2. 펌프 조사
+3. 축 측정
+4. 소재 선택
+5. 축 가공
+6. 납품
+
+이런 식의 전체 진행 목록을
+Gameplay HUD에 상시 표시하지 않는다.
+
+============================================================
+99. QUESTSTATE → CURRENT OBJECTIVE MAPPING
+============================================================
+
+QuestState가 변경될 때마다
+QuestTracker Objective Text를 자동 갱신한다.
+
+QUEST 01 예:
+
+FarmerArrived
+→ "서연의 농장으로 이동하자."
+
+GoingToFarm
+→ "서연의 농장으로 이동하자."
+
+InspectingPump
+→ "고장 난 펌프를 확인하자."
+
+BrokenShaftFound
+→ "고장 난 축을 작업장으로 가져가자."
+
+ReturnedToWorkshop
+→ "고장 난 축을 살펴보자."
+
+RulerAttempt
+→ "고장 난 축의 치수를 확인할 방법을 찾아보자."
+
+VernierReceived
+→ "버니어 캘리퍼스로 고장 난 축을 측정하자."
+
+InspectingBrokenShaft
+→ "고장 난 축의 치수와 마모 상태를 확인하자."
+
+ShapeInferred
+→ "새 펌프 축을 만들 소재를 선택하자."
+
+MaterialSelected
+→ "소재를 선반에 장착하자."
+
+Machining
+→ "새 펌프 축을 가공하자."
+
+FinalInspection
+→ "완성한 펌프 축을 검사하자."
+
+ReadyToDeliver
+→ "완성한 펌프 축을 서연의 농장으로 가져가자."
+
+Installing
+→ "펌프 수리가 끝나는 것을 확인하자."
+
+Completed
+→ QuestTracker에서 제거하거나
+   짧은 Quest Complete 연출 후 숨긴다.
+
+============================================================
+100. OBJECTIVE UPDATE FEEDBACK
+============================================================
+
+현재 목표가 변경되면
+플레이어가 갱신 사실을 알아볼 수 있어야 한다.
+
+허용:
+- 짧은 Fade
+- Text Crossfade
+- 작은 "목표 갱신" Toast
+- Tracker의 짧은 Highlight
+
+금지:
+- 목표가 바뀔 때마다 거대한 Quest Window
+- 화면 중앙을 오래 가리는 연출
+- 같은 Quest 시작 Popup을 반복 출력
+
+예:
+
+[목표 갱신]
+고장 난 축을 살펴보자.
+
+짧게 표시 후
+작은 QuestTracker에 현재 목표만 유지.
+
+============================================================
+101. OPTIONAL HINT POLICY
+============================================================
+
+Hint는 Current Objective와 분리한다.
+
+기본 QuestTracker:
+
+현재 목표
+고장 난 축의 치수와 마모 상태를 확인하자.
+
+Hint는 기본적으로 숨겨도 된다.
+
+Hint 표시 조건 예:
+- 플레이어가 Hint 버튼 선택
+- 특정 Tutorial 구간
+- 플레이어가 장시간 진행하지 못함
+- Quest Design에서 명시적으로 허용된 경우
+
+첫 Quest 측정 Hint 예:
+
+"마모된 부분의 현재 치수가 원래 형상과 같다고 단정할 수는 없다."
+
+금지:
+- Hint가 정답 치수를 공개
+- Hint가 항상 Tracker 아래 여러 줄로 표시
+- "Ø40으로 만들어라" 식으로 추론을 대신함
+- 가공 중 "0.2 mm 더 깎아라" 식 직접 지시
+
+============================================================
+102. QUESTTRACKER SIZE / LAYER RECONFIRMATION
+============================================================
+
+v0.7 Quest UI Layer 규칙을 유지한다.
+
+QuestTracker는:
+- 작은 HUD
+- 현재 목표 1~2줄
+- 화면 모서리
+- 핵심 Gameplay 영역 비침범
+
+LathePage:
+QuestTracker는 매우 작게 유지.
+
+MeasurementPage:
+버니어 판독을 방해하지 않음.
+
+Modal Page:
+QuestTracker는 숨김 / Dim / 안전영역 이동 중 하나.
+
+Current Objective 기능이 추가되었다고
+QuestTracker 크기를 다시 키우지 않는다.
+
+============================================================
+103. v0.8 PATCH / ACCEPTANCE / SOURCE OF TRUTH
+============================================================
+
+v0.8 신규 PATCH:
+
+PATCH 1
+Handwheel Visual Asset Upgrade
+- 기존 회전 기능 유지
+- 이미지 Asset 기반 외형
+- Wheel / Handle / Base 방향 통일
+- 정면 시점 통일
+- 투명 PNG
+- 회전 Pivot 정렬
+
+PATCH 2
+Dynamic QuestTracker
+- 1/2/3/4 고정 목록 제거
+- QuestState별 Current Objective
+- 상태 변경 시 자동 갱신
+- QuestLog와 역할 분리
+
+PATCH 3
+Objective Update Feedback
+- 짧은 목표 갱신 피드백
+- 대형 Quest Window 반복 금지
+
+FINAL PASS:
+
+1. X/Z Handwheel 외형이 이미지 Asset 기반이다.
+2. Handwheel 부품 방향이 정면으로 통일되어 있다.
+3. Base는 고정, Wheel/Handle은 자연스럽게 회전한다.
+4. 이미지 교체 후에도 기존 축 이동 기능이 유지된다.
+5. QuestTracker가 전체 번호 목록을 상시 표시하지 않는다.
+6. QuestTracker는 현재 행동 하나를 중심으로 표시한다.
+7. QuestState 변경 시 Objective가 자동 갱신된다.
+8. 완료된 과거 단계는 Gameplay HUD에 계속 쌓이지 않는다.
+9. 상세 진행 정보는 QuestLogPage에서 확인한다.
+10. Hint는 Objective와 분리된다.
+11. Hint가 정답을 대신하지 않는다.
+12. Lathe/Measurement 화면에서 QuestTracker가 핵심 시야를 침범하지 않는다.
+13. 기존 v0.7의 측정/배경/NPC/오브젝트 식별성 규칙을 깨지 않는다.
+
+------------------------------------------------------------
+103.1 v0.8 FINAL SOURCE OF TRUTH
+------------------------------------------------------------
+
+본 문서:
+
+Last_Machinist_MVP_Development_Spec_v0.8.txt
+
+는 Last Machinist MVP의 최신 단일 구현 기준서다.
+
+우선순위:
+
+Section 97~103의 v0.8 신규/수정 규칙
+>
+Section 89~95의 v0.7 신규/수정 규칙
+>
+Section 78~88의 v0.6 신규/수정 규칙
+>
+Section 64~77의 v0.5 신규/수정 규칙
+>
+Section 60~63의 통합 측정/환경/완료 규칙
+>
+Section 40 이후 상세 재정의
+>
+그보다 앞선 기존 MVP 규칙
+
+충돌 시 더 최신이고 더 구체적인 규칙을 우선한다.
+
+============================================================
+v0.9 신규 정책 통합 구간
+============================================================
+
+============================================================
+104. v0.9 QUEST 01 TUTORIAL TOLERANCE
+============================================================
+
+첫 번째 Quest "멈춰버린 펌프"는 정밀 가공 시험이 아니라
+측정 → 추론 → 가공 → 재측정 → 납품의 핵심 루프를 익히는 Tutorial이다.
+
+기본 목표 형상:
+- L1: Ø40 × 30
+- L2: Ø50 × 40
+- L3: Ø40 × 30
+- Total Length: 100
+
+Quest 01 Tutorial Functional Tolerance:
+주요 직경/길이에 대해 ±1.0 mm 이내까지 기능상 사용 가능 판정을 허용한다.
+
+이 규칙은 Quest 01 전용이다.
+게임 전체 부품의 기본 공차로 사용하지 않는다.
+
+권장 판정:
+- 매우 양호: 대략 ±0.25 mm 이내
+- 사용 가능: 대략 ±0.50 mm 이내
+- Tutorial Functional Pass: 대략 ±1.00 mm 이내
+- 재가공 필요: 추가 가공으로 회복 가능
+- 사용 불가: 과도한 제거 등으로 해당 소재에서 회복 불가
+
+정확한 내부 경계는 Playtest로 조정 가능하나,
+첫 Quest에서 약간 서툰 가공을 즉시 실패시키지 않는 것이 핵심이다.
+
+============================================================
+105. v0.9 Z-AXIS LENGTH MEASUREMENT — ACTUAL GEOMETRY ONLY
+============================================================
+
+길이 측정은 TargetGeometry, Quest 목표값, 초기 설계값을 직접 사용하지 않는다.
+
+반드시 현재 Workpiece Geometry의 실제 Z 좌표에서 계산한다.
+
+Length MeasurementPoint
+→ Current Workpiece Geometry
+→ Start Z
+→ End Z
+→ abs(EndZ - StartZ)
+→ TrueDimension
+→ InstrumentReading
+→ VernierView
+
+예:
+Target L1 Length = 30.0
+현재 실제 L1 Start Z = 0.0
+현재 실제 L1 End Z = 28.7
+
+그러면:
+TrueDimension(L1_Length) = 28.7
+
+이어야 한다.
+
+30.0을 표시하면 FAIL이다.
+
+가공으로 Z 형상이 바뀌면 다음 측정에서 즉시 갱신되어야 한다.
+
+MeasurementPoint는 생성 시 저장한 고정 숫자가 아니라
+현재 Geometry를 참조한다.
+
+권장 개념:
+- GetSegmentStartZ()
+- GetSegmentEndZ()
+- GetCurrentLength()
+
+TEST:
+L1 실제 길이를 27.6으로 강제 변경.
+
+PASS:
+- 버니어가 27.6에 대응
+- Target 30.0을 측정값으로 사용하지 않음
+- 입력칸은 비어 있음
+
+FAIL:
+- 항상 30.0
+- Quest Target을 TrueDimension으로 사용
+- 가공 전후 Length 값이 동일
+
+============================================================
+106. v0.9 MEASUREMENT ACCESSIBILITY
+============================================================
+
+측정은 핵심 시스템이므로 접근 경로가 숨겨지거나 불필요하게 복잡하면 안 된다.
+
+LathePage에서 다음 조건을 만족하면 [측정] 버튼을 쉽게 찾을 수 있어야 한다.
+
+- Workpiece Mounted
+- 주축 정지
+- 측정기 보유
+- 측정 가능한 MeasurementPoint 존재
+
+권장 Flow:
+
+가공
+→ 주축 정지
+→ [측정]
+→ MeasurementPage
+→ 위치 선택
+→ 버니어 판독
+→ 값 입력
+→ 기록
+→ [가공으로 돌아가기]
+
+불필요한 중간 확인창을 추가하지 않는다.
+
+주축 회전 중:
+- 버튼 비활성 또는
+- "주축이 회전 중입니다. 측정하려면 먼저 주축을 정지하세요."
+
+정답 수치는 표시하지 않는다.
+
+============================================================
+107. v0.9 MEASUREMENT PAGE LAYOUT / READABILITY
+============================================================
+
+MeasurementPage는 플레이어 행동 순서와 화면 읽기 순서가 일치해야 한다.
+
+1. 측정 위치 선택
+2. 버니어 확인
+3. 값 입력
+4. 기록
+5. 가공으로 복귀
+
+권장 Layout:
+
+┌──────────────────────────────────────────────┐
+│ 측정 — 마모된 펌프 축        [기록 목록]    │
+│                                              │
+│ 측정 위치                                   │
+│ [L1 직경] [L1 길이] [L2 직경] [L2 길이]   │
+│ [L3 직경] [L3 길이]                         │
+│                                              │
+│            [ 확대된 VernierView ]           │
+│                                              │
+│               읽은 값                        │
+│             [          ] mm                  │
+│          [ 기록 ] [ 다시 측정 ]             │
+│                                              │
+│                         [가공으로 돌아가기]   │
+└──────────────────────────────────────────────┘
+
+Primary Action:
+- [기록]
+
+Secondary:
+- [다시 측정]
+- [기록 목록]
+
+Exit:
+- [가공으로 돌아가기]
+
+현재 선택 MeasurementPoint는 Highlight/Border 등으로 명확히 구분한다.
+
+사용 불가능한 측정 위치는 비활성 상태가 명확해야 한다.
+
+============================================================
+108. v0.9 COMPLEX VISUAL ASSET REQUIREMENT
+============================================================
+
+복잡한 형상이나 한눈에 식별되어야 하는 핵심 오브젝트를
+Codex가 Primitive 조합으로 억지로 최종 구현하지 않는다.
+
+대상 예:
+- Pump
+- 복잡한 Workshop 설비
+- 복잡한 Farm 설비
+- 산업용 기계 Prop
+- 시각적 식별성이 중요한 오브젝트
+
+이 경우 외부 이미지 또는 별도 Art Asset을 우선 요구한다.
+
+Asset이 없으면 Codex는:
+1. Asset Slot 생성
+2. 예상 파일명 정의
+3. Placeholder 사용 가능
+4. Missing Asset 목록 보고
+5. Placeholder 상태를 최종 완료로 보고하지 않음
+
+금지:
+"에셋이 없으므로 Cube/Cylinder 몇 개로 최종 펌프를 만들었다."
+
+Pump 권장:
+- PROP_Pump_Broken.png
+- PROP_Pump_Repaired.png
+
+Visual = External Asset
+State / Interaction / Quest = Unity Logic
+
+Pump는 별도 Interactive Prop GameObject로 유지한다.
+
+============================================================
+109. v0.9 MACHINING ENTRY — MACHINE SELECT PAGE
+============================================================
+
+[가공] 버튼을 누르면 바로 LathePage로 이동하지 않는다.
+
+반드시 MachineSelectPage를 거친다.
+
+Flow:
+
+Gameplay / Workbench
+→ [가공]
+→ MachineSelectPage
+→ [선반] / [밀링] / [드릴링]
+→ 선택한 Machine Page
+
+MVP 기본 버튼:
+- 선반
+- 밀링
+- 드릴링
+
+각 버튼은 최소 상태를 가진다:
+- Available
+- Locked
+- NotImplemented / 준비 중
+
+Quest 01:
+- 선반 = 사용 가능
+- 밀링 = 잠금 또는 준비 중
+- 드릴링 = 잠금 또는 준비 중
+
+따라서:
+가공
+→ MachineSelectPage
+→ 선반
+→ LathePage
+
+순서로 진입한다.
+
+[가공]이 LathePage를 직접 호출하면 FAIL.
+
+향후:
+MachineSelectPage
+├─ Lathe
+├─ Milling
+├─ Drilling
+├─ Grinding
+└─ 기타 공정
+
+확장 가능해야 한다.
+
+============================================================
+110. v0.9 MACHINE SELECT PAGE UI
+============================================================
+
+MachineSelectPage는 복잡한 기술 정보 화면이 아니다.
+
+목적:
+현재 사용 가능한 가공 장비를 선택.
+
+권장:
+
+가공 장비 선택
+
+[선반]
+회전체 가공
+사용 가능
+
+[밀링]
+준비 중
+
+[드릴링]
+준비 중
+
+[돌아가기]
+
+Locked / NotImplemented 버튼을 눌러도
+NullReference, Scene Load Error, 잘못된 페이지 이동이 발생하면 안 된다.
+
+============================================================
+111. v0.9 PATCH / ACCEPTANCE / SOURCE OF TRUTH
+============================================================
+
+PATCH 1
+Quest 01 Tutorial Tolerance
+- ±1.0 mm 기능상 허용
+- 첫 Quest 전용
+
+PATCH 2
+Z-axis Real Geometry Measurement
+- 현재 Workpiece Z 좌표에서 Length 계산
+- Target Geometry를 측정값으로 사용 금지
+
+PATCH 3
+Measurement Accessibility
+- Lathe에서 빠른 측정 진입
+- 가공 복귀 간단화
+
+PATCH 4
+Measurement UI Layout
+- 위치 선택 → 눈금 → 입력 → 기록 순서
+- 버튼 그룹 가독성 강화
+
+PATCH 5
+Complex Visual Asset Policy
+- Pump 등 복잡 오브젝트 외부 Asset 우선
+- Primitive 최종 구현 금지
+
+PATCH 6
+Machine Select Page
+- 가공 버튼에서 바로 Lathe 금지
+- 선반 / 밀링 / 드릴링 선택 화면 추가
+
+FINAL PASS:
+1. Quest 01은 ±1.0 mm 이내까지 기능상 사용 가능.
+2. 이 규칙이 전체 게임 공차로 적용되지 않음.
+3. Z 길이 측정이 현재 실제 Geometry를 반영.
+4. 가공 후 재측정 시 Z Length가 갱신.
+5. MeasurementPage 접근이 간단.
+6. 버튼 배치가 행동 순서대로 읽힘.
+7. 선택 MeasurementPoint가 명확.
+8. Pump를 Primitive 조합 최종본으로 취급하지 않음.
+9. Pump Visual Asset Slot 존재.
+10. [가공]이 LathePage로 직접 이동하지 않음.
+11. MachineSelectPage에 선반/밀링/드릴링 버튼 존재.
+12. Quest 01에서는 선반만 정상 사용 가능.
+13. Locked/준비 중 장비 버튼이 오류를 일으키지 않음.
+14. 기존 v0.8 Handwheel / Dynamic QuestTracker 규칙 유지.
+15. 기존 측정 정답 비노출 규칙 유지.
+
+본 문서:
+Last_Machinist_MVP_Development_Spec_v0.9.txt
+
+는 Last Machinist MVP의 최신 단일 구현 기준서다.
+
+우선순위:
+Section 104~111의 v0.9 신규/수정 규칙
+>
+Section 97~103의 v0.8 신규/수정 규칙
+>
+Section 89~95의 v0.7 신규/수정 규칙
+>
+Section 78~88의 v0.6 신규/수정 규칙
+>
+Section 64~77의 v0.5 신규/수정 규칙
+>
+Section 60~63의 통합 측정/환경/완료 규칙
+>
+Section 40 이후 상세 재정의
+>
+그보다 앞선 기존 MVP 규칙
+
+충돌 시 더 최신이고 더 구체적인 규칙을 우선한다.
+
+============================================================
+END OF LAST MACHINIST — MVP DEVELOPMENT SPEC v0.9
+============================================================
