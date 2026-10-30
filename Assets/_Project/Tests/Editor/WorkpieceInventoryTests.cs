@@ -93,10 +93,10 @@ namespace LastMachinist.Tests
             {
                 store.Save(SaveGameComposer.Capture(integration, "Workshop"));
                 var restored = SaveGameComposer.Restore(store.Load());
-                Assert.That(restored.Inventory.ListWorkpieces.Count, Is.EqualTo(2));
+                Assert.That(restored.Inventory.ListWorkpieces.Count, Is.EqualTo(5));
                 foreach (var original in inventory.ListWorkpieces)
                     Assert.That(JsonUtility.ToJson(restored.Inventory.FindWorkpiece(original.InstanceId)), Is.EqualTo(JsonUtility.ToJson(original)));
-                Assert.That(restored.Inventory.GetQuantity(Quest01Integration.StockItemId), Is.EqualTo(3));
+                Assert.That(restored.Inventory.GetQuantity(Quest01Integration.StockItemId), Is.Zero);
                 Assert.That(restored.Inventory.AddWorkpiece(a), Is.False);
             }
             finally { store.Delete(); }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using LastMachinist.Core;
 using LastMachinist.Evaluation;
 using LastMachinist.Measurement;
@@ -11,7 +12,7 @@ using UnityEngine.InputSystem;
 
 namespace LastMachinist.Machining.Turning
 {
-    public enum HudPage { Lathe, Measurement, Quest, Memo, Inventory, Result, Workshop, Records, MachineSelect, Exploration }
+    public enum HudPage { Lathe, Measurement, Quest, Memo, Inventory, Result, Workshop, Records, MachineSelect, Exploration, BenchDrill }
     public enum LatheViewMode { Front, Top, Right, Isometric }
 
     // Composition/presentation only. Every input action passes through LatheInputRouter.
@@ -48,7 +49,6 @@ namespace LastMachinist.Machining.Turning
         private Vector2 sidebarScroll;
         private readonly LastMachinist.Inventory.WorkpieceInventoryPanel inventoryPanel = new LastMachinist.Inventory.WorkpieceInventoryPanel();
         private bool questSelected;
-        private bool materialChosen;
         private int inferenceTab;
         private Vector2 inferenceTabsScroll;
         private ExplorationRegionDefinition[] explorationRegions;
@@ -56,12 +56,15 @@ namespace LastMachinist.Machining.Turning
         private ExplorationMapDefinition explorationMap;
         private Vector2 regionInfoScroll;
         public RegionProgression RegionProgression => questIntegration?.Regions;
+        public bool ExplorationUnlocked => questIntegration != null && questIntegration.EarlyGameUnlocked;
         private Renderer[] stationRenderers;
         private static QuestPage PageAccess(HudPage page) => page == HudPage.Lathe ? QuestPage.Lathe :
             page == HudPage.Measurement ? QuestPage.Measurement : (page == HudPage.Memo || page == HudPage.Records) ? QuestPage.WorkMemo :
             page == HudPage.Result ? QuestPage.Result : page == HudPage.Inventory ? QuestPage.Inventory : QuestPage.Workshop;
         private bool PageAllowed(HudPage page)
         {
+            if (page == HudPage.BenchDrill) return questIntegration?.Story.Data.BenchInstalled == true;
+            if (page == HudPage.Exploration && !ExplorationUnlocked) return false;
             if (ActiveMachiningWorkpiece != null && (page == HudPage.Lathe || page == HudPage.Measurement || page == HudPage.Records))
                 return page != HudPage.Measurement || !controller.SpindleRunning;
             if (!CanOpenPage(PageAccess(page))) return false;
@@ -72,9 +75,10 @@ namespace LastMachinist.Machining.Turning
         public void OpenPage(HudPage page)
         {
             if (DialogueBlocked || !PageAllowed(page)) return;
+            if (page != HudPage.BenchDrill) benchDrill?.Finish();
             if (ActiveMachiningWorkpiece != null && page != HudPage.Lathe && page != HudPage.Measurement && page != HudPage.Records)
                 EndInventoryMachining();
-            if (page == HudPage.MachineSelect && hudPage != page) { tutorialPreparation = false; inventoryTurningSelected = false; selectedMachiningId = null; preparationQuestId = null; }
+            if (page == HudPage.MachineSelect && hudPage != page) { tutorialPreparation = questIntegration != null && questIntegration.Quest.Data.PumpShaftInferred && questIntegration.Quest.Data.State >= QuestState.ShapeInferred && questIntegration.Quest.Data.State <= QuestState.FinalInspection; inventoryTurningSelected = false; selectedMachiningId = null; preparationQuestId = null; }
             if (activeDial != -1) { activeDial = -1; GUIUtility.hotControl = 0; }
             if (hudPage != page) { rulerAttached = false; sidebarScroll = Vector2.zero; measurementInput = ""; measurementMessage = ""; }
             hudPage = page;
@@ -127,9 +131,11 @@ namespace LastMachinist.Machining.Turning
         public LatheInputRouter Router => router;
         public void BindQuest(Quest01Integration value)
         {
+            benchDrill?.Finish();
             if (ActiveMachiningWorkpiece != null) EndInventoryMachining();
             if (questIntegration != null) questIntegration.MachiningStockSelected -= MountSelectedStock;
             questIntegration = value;
+            benchDrill = value == null ? null : new LastMachinist.Machining.BenchDrill.BenchDrillSession(value.Inventory, ResolveWorkpieceDefinition);
             preparationQuestId = null; selectedRepeatableQuestId = null;
             inventoryMachining = value == null ? null : new LastMachinist.Inventory.InventoryMachiningSession(value.Inventory, ResolveWorkpieceDefinition);
             if (questIntegration != null) questIntegration.MachiningStockSelected += MountSelectedStock;
@@ -138,11 +144,23 @@ namespace LastMachinist.Machining.Turning
 
         public void RestoreQuest(Quest01Integration value)
         {
-            materialChosen = false; inferenceTab = 0;
+            inferenceTab = 0;
             BindQuest(value);
             router.SetActive(false);
-            if (value.CurrentWorkpiece != null && value.Quest.Data.State >= QuestState.MaterialSelected)
+            if (value.CurrentWorkpiece != null && value.Quest.Data.State >= QuestState.MaterialSelected && value.Quest.Data.State <= QuestState.Completed)
+            {
+                var owned = value.Inventory.FindWorkpiece(value.CurrentWorkpiece.InstanceId);
+                if (owned != null && value.Quest.Data.State <= QuestState.FinalInspection)
+                {
+                    var records = value.Measurement.ExportRecords();
+                    if (inventoryMachining.TryBegin(owned.InstanceId, _ => true))
+                    {
+                        value.AttachWorkpiece(owned.MachiningWorkpiece);
+                        value.Measurement.ImportRecords(records);
+                    }
+                }
                 MountSelectedStock(value.CurrentWorkpiece);
+            }
             measurement = value.Measurement;
             pendingMeasurementPoint = null; rulerAttached = false; measurementInput = "";
             hudPage = value.Quest.Data.State == QuestState.FinalInspection ? HudPage.Measurement :
@@ -159,27 +177,41 @@ namespace LastMachinist.Machining.Turning
 
         private void MountSelectedStock(WorkpieceState workpiece)
         {
-            if (ActiveMachiningWorkpiece != null) EndInventoryMachining();
+            bool owned = ActiveMachiningWorkpiece?.InstanceId == workpiece.InstanceId;
+            if (ActiveMachiningWorkpiece != null && !owned) EndInventoryMachining();
             router.SetActive(false);
             controller.Profile.Changed -= OnCut;
             controller = new LatheController(workpiece, settings.RoughingTool.CreateState(), settings.BaseStep,
-                settings.InitialRadialPosition, settings.InitialZPosition, settings.GripLength,
-                settings.ChamferTool != null ? settings.ChamferTool.CreateState() : new ChamferToolState("chamfer_tool", "모따기 바이트", 1f));
+                settings.InitialRadialPosition, owned ? workpiece.Geometry.RoundProfile.TotalLength + 1 : settings.InitialZPosition, Mathf.Min(settings.GripLength,workpiece.Geometry.RoundProfile.GetAxialLength()*.15f),
+                settings.ChamferTool != null ? settings.ChamferTool.CreateState() : new ChamferToolState("chamfer_tool", "모따기 바이트", 1f), owned);
             router = new LatheInputRouter(controller);
             router.SetActive(isActiveAndEnabled);
             controller.Profile.Changed += OnCut;
             stock.GetComponent<TurningWorkpieceView>().Bind(controller.Profile);
             measurement = questIntegration.Measurement;
+            measurementPoints = PumpMeasurementPoints();
             pendingMeasurementPoint = null;
             rulerAttached = false;
             measurementInput = "";
             contactUntil = 0;
             spindleAngle = 0;
             hudPage = HudPage.MachineSelect;
-            tutorialPreparation = true;
+            tutorialPreparation = owned;
             router.SetActive(false);
             UpdateVisuals();
         }
+
+        // Initial workshop preview uses the same owned instance geometry; it does not reserve it.
+        public void MountInitialWorkpiecePreview(WorkpieceState workpiece) => MountSelectedStock(workpiece);
+
+        private static MeasurementPoint[] PumpMeasurementPoints() => new[] {
+            new MeasurementPoint("L1_Diameter", MeasurementPointType.Diameter, 0, 30, "L1 직경"),
+            new MeasurementPoint("L1_Length", MeasurementPointType.Length, 0, 30, "L1 길이"),
+            new MeasurementPoint("L2_Diameter", MeasurementPointType.Diameter, 30, 70, "L2 직경"),
+            new MeasurementPoint("L2_Length", MeasurementPointType.Length, 30, 70, "L2 길이"),
+            new MeasurementPoint("L3_Diameter", MeasurementPointType.Diameter, 70, 100, "L3 직경"),
+            new MeasurementPoint("L3_Length", MeasurementPointType.Length, 70, 100, "L3 길이"),
+            new MeasurementPoint("TotalLength", MeasurementPointType.Length, 0, 100, "전체 길이") };
 
         public void Initialize(LathePrototypeSettings config, Camera camera)
         {
@@ -207,14 +239,7 @@ namespace LastMachinist.Machining.Turning
                 config.ChamferTool != null ? config.ChamferTool.CreateState() : new ChamferToolState("chamfer_tool", "모따기 바이트", 1f));
             router = new LatheInputRouter(controller);
             measurement = new MeasurementSession(workpiece.Geometry.RoundProfile, workpiece.InstanceId);
-            measurementPoints = new[] {
-                new MeasurementPoint("L1_Diameter", MeasurementPointType.Diameter, 0, 30, "L1 직경"),
-                new MeasurementPoint("L1_Length", MeasurementPointType.Length, 0, 30, "L1 길이"),
-                new MeasurementPoint("L2_Diameter", MeasurementPointType.Diameter, 30, 70, "L2 직경"),
-                new MeasurementPoint("L2_Length", MeasurementPointType.Length, 30, 70, "L2 길이"),
-                new MeasurementPoint("L3_Diameter", MeasurementPointType.Diameter, 70, 100, "L3 직경"),
-                new MeasurementPoint("L3_Length", MeasurementPointType.Length, 70, 100, "L3 길이"),
-                new MeasurementPoint("TotalLength", MeasurementPointType.Length, 0, 100, "전체 길이") };
+            measurementPoints = PumpMeasurementPoints();
             controller.Profile.Changed += OnCut;
             var stockObject = new GameObject("Workpiece (authoritative profile view)");
             stockObject.transform.SetParent(transform, false);
@@ -278,6 +303,7 @@ namespace LastMachinist.Machining.Turning
         private void Update()
         {
             if (!initialized) return;
+            if (GameplaySystemMenu.BlocksGameplay) { router.SetActive(false); return; }
             SynchronizeInputContext();
             if (DialogueBlocked) return;
             if (!PageAllowed(hudPage)) OpenPage(HudPage.Workshop);
@@ -413,6 +439,7 @@ namespace LastMachinist.Machining.Turning
 
         private void OnGUI()
         {
+            if (GameplaySystemMenu.BlocksGameplay) return;
             if (!HudVisible) return;
             GUI.depth = 10;
             var oldMatrix = GUI.matrix;
@@ -443,6 +470,10 @@ namespace LastMachinist.Machining.Turning
             GUILayout.Space(12);
             sidebarScroll = GUILayout.BeginScrollView(sidebarScroll);
             if(hudPage!=HudPage.Lathe) DrawRepeatableTracker(label);
+            if (hudPage == HudPage.BenchDrill)
+            {
+                EndSidebar(); DrawBenchDrill(title, label, button); GUI.matrix = oldMatrix; return;
+            }
             if (hudPage == HudPage.Exploration)
             {
                 EndSidebar();
@@ -453,40 +484,7 @@ namespace LastMachinist.Machining.Turning
             if (hudPage == HudPage.MachineSelect)
             {
                 EndSidebar();
-                if (!tutorialPreparation)
-                {
-                    DrawInventoryMachiningPreparation(title, label, button);
-                    GUI.matrix = oldMatrix; return;
-                }
-                GUI.Label(new Rect(420, 40, 540, 50), "작업 준비", title);
-                var preparation = questIntegration?.Quest;
-                bool preparing = preparation != null && preparation.Data.State == QuestState.ShapeInferred;
-                GUI.Label(new Rect(420, 105, 740, 32), "1. 가공 방식 선택", label);
-                GUI.enabled = preparing || PageAllowed(HudPage.Lathe);
-                if (GUI.Button(new Rect(420, 145, 740, 48), "선반 · 회전체 가공", button))
-                {
-                    if (preparing) { preparation.SelectTurning(); materialChosen = false; }
-                    else OpenPage(HudPage.Lathe);
-                }
-                GUI.enabled = false;
-                GUI.Button(new Rect(420, 201, 740, 48), "밀링 · 준비 중", button);
-                GUI.Button(new Rect(420, 257, 740, 48), "드릴링 · 준비 중", button);
-                GUI.enabled = true;
-                if (preparing && preparation.Data.TurningSelected)
-                {
-                    GUI.Label(new Rect(420, 337, 740, 32), "2. 재료 선택 · 선택한 방식: 선반", label);
-                    int count = questIntegration.Inventory.GetQuantity(Quest01Integration.StockItemId);
-                    GUI.enabled = count > 0;
-                    if (GUI.Button(new Rect(420, 379, 740, 48), "기계구조용 탄소강 원형봉 · 보유 " + count + "개" + (materialChosen ? " · 선택됨" : ""), button)) materialChosen = true;
-                    GUI.enabled = materialChosen && count > 0;
-                    if (GUI.Button(new Rect(420, 451, 740, 48), "선반 / 탄소강 원형봉 1개 · 확정 후 가공 시작", button) && questIntegration.SelectMaterial())
-                    {
-                        materialChosen = false;
-                        if (questIntegration.BeginMachining()) OpenPage(HudPage.Lathe);
-                    }
-                    GUI.enabled = true;
-                }
-                else GUI.Label(new Rect(420, 337, 740, 70), preparing ? "가공 방식을 선택하면 재료를 선택할 수 있습니다." : "측정과 형상 추론을 마친 뒤 작업을 준비하세요.", label);
+                DrawInventoryMachiningPreparation(title, label, button);
                 GUI.matrix = oldMatrix; return;
             }
             if (hudPage == HudPage.Workshop)
@@ -510,8 +508,13 @@ namespace LastMachinist.Machining.Turning
                 EndSidebar();
                 GUI.Label(new Rect(400, 35, 700, 48), "퀘스트", title);
                 if (GUI.Button(new Rect(400, 88, 250, 42), "메인 / 스토리", button)) repeatableQuestTab = false;
+                GUI.enabled = questIntegration != null && questIntegration.EarlyGameUnlocked;
                 if (GUI.Button(new Rect(668, 88, 250, 42), "반복 의뢰", button)) repeatableQuestTab = true;
+                GUI.enabled = true;
+                if (repeatableQuestTab && (questIntegration == null || !questIntegration.EarlyGameUnlocked)) repeatableQuestTab = false;
                 if (repeatableQuestTab) { DrawRepeatableQuestWindow(label, button); GUI.matrix = oldMatrix; return; }
+                if (questIntegration?.EarlyGameUnlocked == true)
+                { DrawWorkshopStoryQuests(label, button); GUI.matrix = oldMatrix; return; }
                 var quest = questIntegration?.Quest;
                 var list = MvpPanelLayout.QuestList;
                 var detail = MvpPanelLayout.QuestDetail;
@@ -568,15 +571,10 @@ namespace LastMachinist.Machining.Turning
                     { if (questIntegration.Rework()) OpenPage(HudPage.Lathe); }
                     if (questIntegration.LastEvaluation.Result == PartEvaluationResult.Rejected)
                     {
-                        GUI.enabled = questIntegration.Inventory.GetQuantity(Quest01Integration.StockItemId) > 0;
-                        if (GUI.Button(new Rect(420, 280, 300, 48), "새 소재 1개로 다시 시작", button)) questIntegration.RetryRejected();
-                        GUI.enabled = true;
-                        if (questIntegration.Inventory.GetQuantity(Quest01Integration.StockItemId) == 0)
-                        {
-                            GUI.Label(new Rect(420, 350, 700, 65), "소재를 모두 사용했습니다. MVP 연습 복구는 소재 3개로 가공을 다시 시작합니다.", label);
-                            if (GUI.Button(new Rect(420, 425, 310, 48), "가공 연습 다시 시작 (MVP)", button))
-                                questIntegration.RestartMachiningPractice();
-                        }
+                        if (GUI.Button(new Rect(420, 280, 300, 48), "다른 공작물 선택", button)) PrepareQuest01Workpiece();
+                        GUI.Label(new Rect(420, 350, 700, 65), ExplorationUnlocked
+                            ? "적합한 공작물이 없다면 탐색에서 소재를 확보하세요."
+                            : "남은 초기 공작물을 선택하거나 이전 저장을 불러오세요.", label);
                     }
                 }
                 GUI.matrix = oldMatrix;
@@ -596,6 +594,7 @@ namespace LastMachinist.Machining.Turning
             GUI.Label(new Rect(404, 35, 540, 48), "탐색 · 지역 지도", title);
             if (RegionProgression == null) return;
             var background = explorationMap != null ? explorationMap.BackgroundImage : null;
+            background ??= Resources.Load<Texture2D>("PrologueArt/ExplorationMapBackground");
             var map = ExplorationMapLayout.ImageRect(ExplorationMapLayout.MapArea, background != null ? (float)background.width/background.height : explorationMap != null ? explorationMap.PlaceholderAspect : 1);
             // MapArea / BackgroundImage / RegionMarkerContainer share the same fitted rect.
             if (background != null) GUI.DrawTexture(map, background, ScaleMode.StretchToFill);
@@ -620,12 +619,12 @@ namespace LastMachinist.Machining.Turning
             GUILayout.Label(selectedRegion == null ? "지도에서 지역 마커를 선택하세요." : RegionProgression.Information(selectedRegion), new GUIStyle(label) { wordWrap=true });
             if (selectedRegion != null && HasActiveRegionQuest(selectedRegion)) GUILayout.Label("\n관련 활성 의뢰\n멈춰버린 펌프", label);
             GUILayout.EndScrollView(); GUILayout.EndArea();
-            GUI.enabled = selectedRegion != null && RegionProgression.CanEnter(selectedRegion.RegionId) && !ExplorationSession.IsExploring;
+            GUI.enabled = ExplorationUnlocked && selectedRegion != null && RegionProgression.CanEnter(selectedRegion.RegionId) && !ExplorationSession.IsExploring;
             if (GUI.Button(ExplorationMapLayout.StartButton, "탐색 시작", button)) ExplorationSession.Enter(selectedRegion, this);
             GUI.enabled = true;
         }
         private bool HasActiveRegionQuest(ExplorationRegionDefinition region)
-            => System.Array.IndexOf(region.RelatedQuestIds, RegionProgression.PumpQuestId) >= 0 &&
+            => System.Array.IndexOf(region.RelatedQuestIds, LastMachinist.Core.RegionProgression.PumpQuestId) >= 0 &&
                questIntegration.Quest.Data.State != QuestState.NotStarted && questIntegration.Quest.Data.State != QuestState.Completed;
 
         private void DrawInferenceMemo(GUIStyle title, GUIStyle label, GUIStyle button)
@@ -673,7 +672,7 @@ namespace LastMachinist.Machining.Turning
 
         private void DrawProgressControls(GUIStyle button)
         {
-            if (ActiveMachiningWorkpiece != null)
+            if (ActiveMachiningWorkpiece != null && !IsQuest01Machining)
             {
                 GUILayout.Label("보유 공작물 가공 · " + InventoryMaterialLabel(), GUI.skin.label);
                 if (GUILayout.Button("주축 정지 후 측정", button)) { router.SetSpindleRunning(false); OpenPage(HudPage.Measurement); }
@@ -714,7 +713,7 @@ namespace LastMachinist.Machining.Turning
 
         public bool FinishMachiningAndMeasure()
         {
-            if (ActiveMachiningWorkpiece != null && !DialogueBlocked && !controller.SpindleRunning) { OpenPage(HudPage.Measurement); return true; }
+            if (ActiveMachiningWorkpiece != null && !IsQuest01Machining && !DialogueBlocked && !controller.SpindleRunning) { OpenPage(HudPage.Measurement); return true; }
             if (DialogueBlocked || questIntegration == null || controller.SpindleRunning) return false;
             if (!questIntegration.BeginFinalInspection(true)) return false;
             OpenPage(HudPage.Measurement);
@@ -745,7 +744,7 @@ namespace LastMachinist.Machining.Turning
                 return text.ToString();
             }
             if (hudPage == HudPage.Inventory)
-                return "기계구조용 탄소강 원형봉: " + questIntegration.Inventory.GetQuantity(Quest01Integration.StockItemId) + "개\n금속 자: 보유\n황삭 바이트: 보유\n모따기 바이트: 보유";
+                return "금속 자: 보유\n황삭 바이트: 보유\n모따기 바이트: 보유";
             var result = questIntegration.LastEvaluation;
             return result == null ? "아직 검사 결과가 없습니다." : "판정: " + ResultLabel(result.Result) + "\n" + result.Reason;
         }
@@ -774,9 +773,7 @@ namespace LastMachinist.Machining.Turning
 
         private static PartRequirement CreatePrototypeRequirement()
         {
-            return new PartRequirement { PerfectTolerance = 0.25f, FunctionalTolerance = 1f, AssessCurrentFeatureLengths = true, Dimensions = new List<DimensionRequirement> {
-                new DimensionRequirement("L1", 0, 30, 40), new DimensionRequirement("L2", 30, 70, 50), new DimensionRequirement("L3", 70, 100, 40) },
-                RequiredChamferPositions = new List<float> { 0 } };
+            return Quest01Integration.PumpRequirement();
         }
 
         private bool CanOpenPage(QuestPage page)
@@ -802,7 +799,8 @@ namespace LastMachinist.Machining.Turning
                 rulerAttached = false; pendingMeasurementPoint = null; measurementInput = "";
             }
             if (measurement == null) return;
-            if (GUI.Button(new Rect(1040, 35, 170, 42), "기록 목록", button)) OpenPage(HudPage.Records);
+            // Keep page actions left of the persistent Save/Close toolbar.
+            if (GUI.Button(new Rect(780, 35, 180, 42), "기록 목록", button)) OpenPage(HudPage.Records);
             for (int i = 0; i < measurementPoints.Length; i++)
             {
                 var point = measurementPoints[i];

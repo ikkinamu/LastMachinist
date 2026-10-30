@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7abd305801444880875a31a270f02ccd, type: 3}
+  m_Name: PlateRecovery
+  ItemId: abandoned_plate
+  DisplayName: 먼지 쌓인 판재
+  InspectionProperties:
+  - PropertyLabel: 외형
+    PropertyValue: 얇은 직사각 판재
+  CanRecover: 1
+  RecoveryId: abandoned_plate_instance
+  Workpiece: {fileID: 11400000, guid: 22222222222222222222222222222222, type: 2}
+  ActualMaterialType: structural_carbon_steel
+  ActualDimensions: {x: 1.2, y: 0.05, z: 0.9}

@@ -1,0 +1,369 @@
+LAST MACHINIST — STORY & EXPLORATION CONTENT PHASE 01
+
+QUEST 02 / ABANDONED WORKSHOP / ENVIRONMENT ART / WORKPIECE SHAPE EXPANSION
+
+0. 목표
+
+기존 시스템 위에서 실제 스토리와 탐색 콘텐츠를 전진시킨다.
+
+MAIN QUEST 01 완료 → 탐색/반복 의뢰 해금 → 박성철에게 오래된 작업장 정보
+획득 → 지도에 Rumored ? → 버려진 작업장 탐색 → 다양한 재료 조사/회수 →
+탁상드릴 Major Discovery → 회수/복구 → 작업장 설비 확장 → 이후 드릴 가공
+콘텐츠 기반 확보.
+
+동시에 Workpiece를 환봉 전용 구조에서 일반화한다. 최소 Shape: RoundBar /
+SquareBar / RectangularBar / Plate / Tube.
+
+기존 Frozen MVP/PATCH, Vertical Slice Phase, CROSS-PHASE REV01~03을
+재작성하지 않는다. 이미지/텍스처/3D 모델 자체 생성은 OUT OF SCOPE.
+
+1. AUDIT
+
+구현 전 확인: - Quest01 Completed/Progression Unlock/Main Quest
+Offer-Accept/QuestTracker - 박성철 Dialogue 및 REV03 Dialogue UI -
+RegionDefinition, Hidden/Rumored/Discovered, KnownInformation,
+MajorDiscovery, MapPositionNormalized - Exploration
+Inspection/Recovery/Return Session -
+MaterialDefinition/WorkpieceDefinition/WorkpieceInstance/ShapeType/CurrentGeometry -
+Non-Stack/Inventory/Lathe Selection/MachiningCompatibility/SaveLoad -
+Workshop Equipment/Equipment Unlock 구조 - Exploration Scene
+Terrain/Material/Prop 구조
+
+기존 Manager/System을 우선 확장하고 중복 Manager를 만들지 않는다.
+
+2. STORY POSITION
+
+Quest01 미완료: - Exploration 잠김 - Repeatable Quest 잠김 - Quest02
+시작 불가
+
+Quest01 완료: - 기존 규칙대로 Exploration + Repeatable Quest 해금 -
+Quest02용 박성철 Follow-up Event 활성화 가능.
+
+3. MAIN QUEST 02 — 버려진 작업장
+
+목적: 탐색이 단순 재료 줍기가 아니라 새 기술/설비 발견으로 이어짐을
+보여주는 첫 Story Exploration.
+
+Quest 시작부터 “탁상드릴을 가져오라”고 알려주지 않는다. 박성철은 “예전에
+작은 작업장이 있었고 쓸 만한 것이 남았을 수도 있다” 정도만 알려준다.
+
+4. QUEST 02 FLOW
+
+1.  Quest01 Completed
+2.  박성철 Follow-up
+3.  오래된 작업장 정보 획득
+4.  AbandonedWorkshop Hidden → Rumored
+5.  지도 ?
+6.  Known Information 확인
+7.  접근 가능
+8.  Map → 탐색 시작
+9.  황야/폐공업 환경 진입
+10. 작업장 외부 발견
+11. 내부 탐색
+12. 재료/공구 흔적/폐자재 조사
+13. 탁상드릴 발견
+14. Major Discovery 기록
+15. 탁상드릴 회수/복구
+16. 작업장 복귀
+17. Player Workshop Equipment로 등록
+18. Quest02 완료
+
+5. REGION DISCOVERY
+
+Quest01 완료만으로 Discovered 처리하지 않는다. Quest01 → 박성철
+Follow-up → Hidden→Rumored.
+
+Rumored Known Information: - 오래된 소규모 작업장이 있었다. - 전쟁 이후
+사용되지 않은 것으로 보인다. - 남은 물건이 있을 가능성이 있다.
+
+발견 전 UI 금지: - 탁상드릴 존재 - 정확한 장비 목록 - Major Discovery -
+Loot 목록
+
+실제 지역 진입/발견 조건 후 Rumored→Discovered.
+
+6. ABANDONED WORKSHOP ENVIRONMENT
+
+첫 본격 Exploration Content Region.
+
+분위기: 황야 / 버려진 공업지역 / 건조한 먼지 / 녹슨 산업시설 / 자연
+침식.
+
+최소 공간: A 접근 도로/흙길 B 작업장 외부 C 스크랩 공간 D 입구 E 작업장
+내부 F 작업대/공구 보관 흔적 G 기계가 있던 자리 H 탁상드릴 발견 위치
+
+최종 구조를 테스트용 Plane+Cube로 고정하지 않는다.
+
+7. ENVIRONMENT STORYTELLING
+
+긴 설명문 대신 공간으로 과거를 보여준다. 예: 녹슨 소재, 짧은 봉재, 판재
+조각, 빈 공구함, 부러진 공구, 작업대, 철제 선반, 먼지 쌓인 기계 자리,
+폐파이프, 스크랩, 보관함, 깨진 창문. Gameplay Interaction 대상과 단순
+배경 Prop을 구분한다.
+
+8. ART ASSET CATEGORY
+
+A. 2D Illustration/UI Image - Exploration Map Background - Abandoned
+Workshop Region Preview - Title/Prologue는 기존 REV03 규칙 유지
+
+B. Surface Texture/Material - Dry Ground/Dirt - Gravel - Concrete -
+Workshop Floor - Old Wall - Rusted Metal - Old Painted Metal - Wood -
+Dusty Industrial Surface
+
+C. 3D Prop/Model - Bench Drill - Workbench - Metal Shelf - Scrap Pile -
+Barrel - Pipe - Storage Box - Old Machine/Broken Tool/Industrial Debris
+
+Texture/Material 교체가 Quest/Collision/Interaction/Data를 깨뜨리면 안
+된다. 실제 에셋 생성은 사용자가 별도로 요청할 때만 진행한다.
+
+9. REGION PREVIEW
+
+Region Info Panel에 Preview Image Slot 사용 가능. Rumored 상태에서는
+멀리 보이는 황야/건물 실루엣처럼 Major Discovery를 스포하지 않는 이미지.
+최종 이미지는 EXTERNAL ART REQUIRED.
+
+10. BENCH DRILL MAJOR DISCOVERY
+
+탁상드릴은 일반 Loot와 분리된 Major Discovery. 발견 전 Map/Quest UI에서
+이름을 미리 노출하지 않는다. 발견 시 MajorDiscovery 기록 + Quest
+Objective 갱신. 일반 Workpiece Inventory Item으로 취급하지 않고
+Equipment/Workshop Progression으로 관리.
+
+11. BENCH DRILL ROLE
+
+Lathe Tailstock Drill: - 회전체 중심축 방향 Hole.
+
+Bench Drill: - 판재/각재/직사각재 등 비회전체 포함 - 중심축에 제한되지
+않는 일반 위치 Hole 기반.
+
+따라서 Tailstock Drill과 Bench Drill을 같은 기능으로 취급하지 않는다.
+
+이번 Phase 최소 목표는 발견→회수/복구→Workshop Equipment 등록/표시. 정밀
+Bench Drill Simulator 전체는 후속 Phase 가능.
+
+12. WORKPIECE SHAPE EXPANSION
+
+최소 ShapeType: - RoundBar - SquareBar - RectangularBar - Plate - Tube
+
+RoundBar 전용 Diameter+Length 구조에 모든 재료를 억지로 넣지 않는다.
+
+권장 Geometry: RoundBar: Diameter, Length SquareBar: Width, Height,
+Length RectangularBar: Width, Height, Length Plate: Width, Length,
+Thickness Tube: OuterDiameter, InnerDiameter, Length 또는 OuterDiameter,
+WallThickness, Length.
+
+Tube는 ID 또는 WallThickness 중 하나를 내부 Source of Truth로 정해 중복
+Truth를 피한다.
+
+13. CURRENT GEOMETRY / INVENTORY
+
+각 WorkpieceInstance는 실제 CurrentGeometry를 가진다.
+NominalDimensions를 현재 실제 치수처럼 표시하지 않는다.
+
+표시 예: - 환봉: Ø30 × 100.0 mm - 각봉: 30 × 30 × 120.0 mm - 직사각
+봉재: 20 × 40 × 120.0 mm - 판재: 100 × 80 × t5.0 mm - 파이프: Ø40 × t3 ×
+100.0 mm
+
+Material Unknown이면 기존 IdentificationState에 따라 실제 Material
+Truth를 숨긴다.
+
+14. NON-STACK
+
+Phase04 REV2 유지. WorkpieceInstance is NOT a Stack Item.
+
+같은 판재 두 장도: - 별도 Row - 별도 InstanceId - 별도
+Condition/Geometry
+
+판재 x2처럼 합치지 않는다. Consumable Resource는 별도 규칙으로 Stack
+가능.
+
+15. EXPLORATION MATERIAL VARIETY
+
+Abandoned Workshop에 환봉만 배치하지 않는다.
+
+최소 Test Set: - RoundBar ≥1 - SquareBar 또는 RectangularBar ≥1 - Plate
+≥1 - Tube ≥1
+
+모두 기존 Inspect→Recover Flow 사용. 각 Instance는 Condition,
+IdentificationState, CurrentGeometry 보유.
+
+16. MACHINE COMPATIBILITY
+
+ShapeType 기반으로 일반화.
+
+Lathe: - RoundBar 기본 Compatible - Tube는 현재 구현 능력에 따라
+조건부 - Plate/Square/Rectangular는 현재 미지원이면 Incompatible
+
+Bench Drill: - Plate/Square/Rectangular/RoundBar/Tube를 향후
+Fixture/Operation 규칙에 따라 지원
+
+Milling: - Plate/Square/Rectangular 중심으로 향후 확장
+
+미지원 Shape를 기존 Lathe에 억지로 로드하지 않는다. Incompatible 선택 시
+이유를 표시하고 Item은 Available 상태 유지.
+
+17. LATHE REGRESSION
+
+기존 RoundBar: Inventory → 선택 → ActiveMachiningWorkpiece → Lathe →
+Turning → Measurement → SaveLoad 흐름을 그대로 유지한다.
+
+Shape 일반화 때문에 기존 Quest01/Repeatable Lathe Flow가 깨지면 FAIL.
+
+18. SAVE / LOAD
+
+각 Instance 저장: InstanceId / DefinitionId / ShapeType /
+CurrentGeometry / Material Truth Reference / IdentificationState /
+Condition / Ownership State / 기존 데이터.
+
+Shape별 Geometry를 정확히 복원한다. Plate 100×80×t5 → Save→Continue →
+동일 치수. 기존 RoundBar Save와 가능한 범위에서
+Migration/Compatibility를 제공한다.
+
+19. QUEST TRACKER
+
+기존 “현재 행동” 규칙 유지.
+
+예: 박성철과 이야기하자 → 지도에서 새로운 정보를 확인하자 → 버려진
+작업장을 찾아가자 → 작업장 내부를 조사하자 → 발견한 장비를 확인하자 →
+장비를 회수할 방법을 확인하자 → 작업장으로 돌아가자
+
+탁상드릴 발견 전에는 Tracker가 이름을 스포하지 않는다.
+
+20. PACING
+
+지역 진입 5초 만에 Major Discovery를 주지 않는다. 지역 분위기 →
+재료/Prop 조사 → 작업장 위치 파악 → 내부 진입 → 발견 순서를 경험하게
+한다. 반대로 불필요한 미로/긴 이동으로 시간을 끌지 않는다.
+
+21. OUT OF SCOPE
+
+-   Bench Drill 전체 정밀 Simulator
+-   Milling Machine/Milling Simulator
+-   Open World/Combat/Enemy/Vehicle
+-   Material Testing 전체(Hardness/Tensile/NDT)
+-   Tube 복잡 내경가공 전체
+-   판금/용접
+-   모든 Region Art 완성
+-   외부 Art Asset 실제 생성
+-   Quest03 이후 전체 Story
+-   경제/평판 대규모 확장
+
+22. IMPLEMENTATION ORDER
+
+1.  Quest/Region/Inventory/Workpiece/Equipment/Art AUDIT
+2.  Shape Geometry 일반화
+3.  기존 RoundBar Migration/Compatibility
+4.  Square/Rectangular/Plate/Tube 추가
+5.  Inventory Dimension Formatter
+6.  SaveLoad 확장
+7.  Machine Compatibility 일반화
+8.  AbandonedWorkshop RegionDefinition
+9.  Quest01→박성철 Follow-up→Rumored 연결
+10. Quest02 Offer/Accept/Tracker
+11. Exploration Scene 공간 구조
+12. Texture/Material/Prop Slot
+13. 다양한 Shape Test Workpiece
+14. Bench Drill Major Discovery
+15. Recovery/Workshop Equipment 등록
+16. Return/AutoSave 검증
+17. Quest02 Complete
+18. REV01~03 Regression
+19. Player Build Test
+
+23. TESTS
+
+01 Quest01 미완료 → Quest02 불가. 02 Quest01 완료 → 기존
+Exploration/Repeatable 해금. 03 Follow-up 전 Region Hidden. 04 Follow-up
+후 Rumored. 05 Rumored 지도 ?. 06 KnownInformation에 탁상드릴 스포 없음.
+07 실제 발견 후 Discovered. 08 Quest02 기존 Quest Window Accept Flow. 09
+Tracker 현재 행동 방식. 10 외부/내부 탐색 가능. 11 Environment가 테스트
+Primitive 전용으로 고정되지 않음. 12 RoundBar Recovery. 13 SquareBar
+Recovery. 14 RectangularBar Recovery. 15 Plate Recovery. 16 Tube
+Recovery. 17 같은 Workpiece도 Non-Stack. 18 RoundBar 치수 표시. 19
+SquareBar 치수 표시. 20 Plate 치수 표시. 21 Tube 치수 표시. 22 Unknown
+Material Truth 비노출. 23 CurrentGeometry가 Source of Truth. 24 Plate
+SaveLoad. 25 Tube SaveLoad. 26 기존 RoundBar Save 호환. 27 Lathe
+RoundBar 정상. 28 Lathe Plate 미지원 시 안전 차단. 29 Incompatible Item
+Available 유지. 30 Bench Drill 발견 전 스포 없음. 31 Bench Drill
+발견→MajorDiscovery. 32 Bench Drill을 일반 Workpiece로 취급하지 않음. 33
+Return 후 Equipment 상태 유지. 34 Workshop에서 획득/설치 상태 확인. 35
+Quest02 Complete. 36 Continue 후 Quest/Region/MajorDiscovery/Equipment
+복원. 37 회수 Workpiece Instance/Geometry 복원. 38 REV03 Map/Marker
+정상. 39 REV03 Exploration Return 정상. 40 REV01 Unlock 정상. 41 REV02
+Save/Continue/Exit 정상. 42 REV03 Prologue/Dialogue 정상. 43 Console
+Error 0.
+
+24. PASS
+
+-   Quest01 이후 Quest02로 Story가 진행.
+-   버려진 작업장이 실제 Exploration Content.
+-   Hidden→Rumored→Discovered.
+-   탁상드릴 발견 전 스포 없음.
+-   Environment Texture/Material/Prop 기반 존재.
+-   탁상드릴 Major Discovery→Workshop Equipment.
+-   RoundBar/SquareBar/RectangularBar/Plate/Tube 지원.
+-   Shape별 CurrentGeometry.
+-   Inventory 치수 표시 정상.
+-   Workpiece Non-Stack.
+-   Shape SaveLoad 정상.
+-   MachineCompatibility Shape 기반.
+-   기존 RoundBar Lathe 회귀 없음.
+-   REV01~03 회귀 없음.
+-   Console Error 0.
+
+25. FAIL
+
+-   Quest 시작부터 탁상드릴 위치/존재 직접 공개.
+-   Rumored 정보가 Major Discovery 스포.
+-   탐색 없이 메뉴 보상으로 장비 생성.
+-   Environment가 Primitive 테스트 공간으로만 고정.
+-   Texture 교체가 Gameplay Logic 파괴.
+-   모든 Shape를 Diameter+Length로 강제.
+-   판재/각재를 환봉 데이터로 위장.
+-   Workpiece Stack.
+-   Nominal을 Actual처럼 표시.
+-   Shape 확장 후 RoundBar Lathe 회귀.
+-   Incompatible 선택 시 Item 손실.
+-   Plate/Tube SaveLoad 손실.
+-   Bench Drill을 일반 Workpiece Inventory Item 처리.
+-   Tailstock Drill과 Bench Drill 역할 동일시.
+-   중복 Manager 생성.
+-   REV01~03 회귀.
+
+26. CODEX IMPLEMENTATION REPORT
+
+1 AUDIT 결과 2 수정/추가 파일 3 Quest02 구조 4 Quest01→Quest02 연결 5
+Region State Flow 6 KnownInformation 7 Exploration Scene 구성 8
+Environment Art Slot 9 Texture/Material 10 3D Prop 11 Region Preview 12
+MajorDiscovery 13 Bench Drill Recovery 14 Workshop Equipment 15
+ShapeType 16 Shape별 Geometry 17 Dimension Formatter 18
+MachineCompatibility 19 RoundBar Migration 20 SaveLoad 21 REV01
+Regression 22 REV02 Regression 23 REV03 Regression 24 TEST01~43 25
+Console Error 26 Player Build 27 EXTERNAL ART REQUIRED 28 TODO
+
+27. EXTERNAL ART REQUIRED
+
+2D: - Abandoned Workshop Region Preview - Exploration Map Background
+최종 이미지
+
+Surface: - Dry Ground/Dirt, Gravel, Concrete, Workshop Floor, Old Wall,
+Rusted Metal, Old Painted Metal, Wood, Dusty Industrial Surface
+
+3D: - Bench Drill, Workbench, Metal Shelf, Scrap Pile, Barrel, Pipes,
+Storage Boxes, Old Machine Props, Broken Tool Props, Industrial Debris
+
+실제 생성은 사용자가 별도로 요청할 때만 진행한다.
+
+28. 완료 기준
+
+STORY: Quest01 → 박성철 Follow-up → Rumored Region → Quest02 → Explore →
+Bench Drill Major Discovery → Recovery → Workshop Install → Quest02
+Complete.
+
+RESOURCE: Explore → 다양한 Shape 발견 → Inspect → Recover → Workshop
+Return → 개별 WorkpieceInstance 유지.
+
+PROGRESSION: 초기 Lathe → Exploration → Bench Drill 발견/회수 →
+비회전체/일반 Hole Machining 확장 기반 → 향후 Milling Machine
+Progression.
+
+실제 Player Build에서 위 흐름과 기존 REV01~03이 정상 작동하면 완료.

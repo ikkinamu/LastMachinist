@@ -39,11 +39,30 @@ namespace LastMachinist.Tests
             var station = Object.FindAnyObjectByType<LathePrototype>();
             var stock = station.Controller.Workpiece;
             var inventory = station.PlayerInventory;
-            Assert.That(inventory.ListWorkpieces.Count, Is.Zero);
+            Assert.That(inventory.ListWorkpieces.Count, Is.EqualTo(3));
             var region = Resources.Load<ExplorationRegionDefinition>("ExplorationRegions/TestYard");
+            boot.Quest01.Quest.Data.State = QuestState.Completed;
+            boot.Quest01.RepeatableQuests.Unlock();
+            station.OpenPage(HudPage.Exploration);
             Assert.That(ExplorationSession.Enter(region, station), Is.True);
             var session = Object.FindAnyObjectByType<ExplorationSession>();
             var player = session.Player;
+            var systemMenu = GameplaySystemMenu.Current;
+            Assert.That(systemMenu, Is.Not.Null);
+            var beforeMenu = player.transform.position;
+            systemMenu.OpenMenu();
+            Assert.That(player.SystemBlocked && !player.CanInteract, Is.True);
+            player.MoveStep(Vector2.up, 1);
+            player.ApplyLook(new Vector2(100, 100));
+            Assert.That(player.transform.position, Is.EqualTo(beforeMenu));
+            Assert.That(player.Pitch, Is.Zero);
+            Assert.That(systemMenu.CanReturn, Is.True);
+            systemMenu.RequestReturn();
+            Assert.That(systemMenu.ReturnConfirmation, Is.True);
+            systemMenu.CancelReturn();
+            Assert.That(systemMenu.IsOpen && ExplorationSession.IsExploring, Is.True);
+            systemMenu.CloseMenu();
+            Assert.That(player.SystemBlocked, Is.False);
             var inspection = session.Inspection;
             var camera = player.GetComponentInChildren<Camera>();
             player.SetMenu(true);
@@ -98,7 +117,7 @@ namespace LastMachinist.Tests
             int requests = 0; player.InteractRequested += () => requests++;
             player.RequestInteract(); Assert.That(requests, Is.Zero, "Modal blocks world click");
             inspection.Close();
-            Assert.That(inventory.ListWorkpieces.Count, Is.Zero, "Close does not acquire stock");
+            Assert.That(inventory.ListWorkpieces.Count, Is.EqualTo(3), "Close preserves the three initial pieces without acquiring stock");
             Assert.That(first.gameObject.activeSelf, Is.True);
             Assert.That(player.InspectionOpen, Is.False);
             player.RequestInteract(); Assert.That(requests, Is.Zero, "Closing frame blocks click-through");
@@ -128,24 +147,41 @@ namespace LastMachinist.Tests
             yield return null; // Exercise IMGUI layout/repaint with the second property count.
             Assert.That(inspection.Recover(), Is.True);
             Assert.That(inspection.RecoveredItemIds.Count, Is.EqualTo(2));
-            Assert.That(inventory.ListWorkpieces.Count, Is.EqualTo(2));
+            Assert.That(inventory.ListWorkpieces.Count, Is.EqualTo(5));
             Assert.That(player.InspectionOpen, Is.False);
-            session.ReturnToWorkshop();
+            bool savedAfterReturn = false;
+            System.Action checkpoint = () => {
+                if (!ExplorationSession.IsExploring)
+                {
+                    Assert.That(station.CurrentPage, Is.EqualTo(HudPage.Workshop));
+                    var snapshot = LastMachinist.Save.SaveGameComposer.Capture(boot.Quest01, "Workshop");
+                    var restored = LastMachinist.Save.SaveGameComposer.Restore(
+                        JsonUtility.FromJson<LastMachinist.Save.SaveGameData>(JsonUtility.ToJson(snapshot)));
+                    Assert.That(restored.Inventory.ListWorkpieces.Count, Is.EqualTo(5));
+                    savedAfterReturn = true;
+                }
+            };
+            ExplorationSession.AutoSaveRequested += checkpoint;
+            systemMenu.OpenMenu(); systemMenu.RequestReturn();
+            Assert.That(systemMenu.ConfirmReturn(), Is.True);
+            Assert.That(systemMenu.ConfirmReturn(), Is.False);
             for (int i = 0; i < 120 && ExplorationSession.IsExploring; i++) yield return null;
+            ExplorationSession.AutoSaveRequested -= checkpoint;
+            Assert.That(savedAfterReturn, Is.True);
             Assert.That(ExplorationSession.IsExploring, Is.False);
             Assert.That(station.isActiveAndEnabled, Is.True);
             Assert.That(station.CurrentPage, Is.EqualTo(HudPage.Workshop));
             Assert.That(station.Controller.Workpiece, Is.SameAs(stock));
             station.OpenPage(HudPage.Inventory);
             Assert.That(station.CurrentPage, Is.EqualTo(HudPage.Inventory));
-            Assert.That(station.PlayerInventory.ListWorkpieces.Count, Is.EqualTo(2));
+            Assert.That(station.PlayerInventory.ListWorkpieces.Count, Is.EqualTo(5));
             yield return null;
             // Phase 04: recovered inventory instance -> real lathe -> cut -> measure -> return.
-            var owned = inventory.ListWorkpieces[0];
-            var other = inventory.ListWorkpieces[1];
+            var owned = inventory.ListWorkpieces[3];
+            var other = inventory.ListWorkpieces[4];
             var questStateBefore = boot.Quest01.Quest.Data.State;
             station.OpenPage(HudPage.MachineSelect);
-            Assert.That(station.MachiningCandidates().Count, Is.EqualTo(2));
+            Assert.That(station.MachiningCandidates().Count, Is.EqualTo(5));
             Assert.That(station.SelectInventoryWorkpiece(owned.InstanceId), Is.True);
             station.CancelInventoryPreparation();
             Assert.That(station.StartInventoryMachining(), Is.False);
@@ -192,7 +228,7 @@ namespace LastMachinist.Tests
             Assert.That(ExplorationSession.Enter(region, station), Is.True);
             session = Object.FindAnyObjectByType<ExplorationSession>();
             Assert.That(session.Inspection.RecoveredItemIds.Count, Is.Zero, "New session resets its recovery log");
-            Assert.That(station.PlayerInventory.ListWorkpieces.Count, Is.EqualTo(2), "Owned workpieces persist on reentry");
+            Assert.That(station.PlayerInventory.ListWorkpieces.Count, Is.EqualTo(5), "Initial and recovered workpieces persist on reentry");
             Assert.That(Object.FindObjectsByType<InspectableItem>().Length, Is.EqualTo(2));
             session.ReturnToWorkshop();
             for (int i = 0; i < 120 && ExplorationSession.IsExploring; i++) yield return null;

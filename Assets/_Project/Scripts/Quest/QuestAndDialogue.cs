@@ -17,12 +17,14 @@ namespace LastMachinist.Quest
     public sealed class QuestRuntimeState
     {
         public string QuestId = "quest_pump_01";
+        public LastMachinist.Core.PrologueStatus Prologue;
         public QuestState State = QuestState.NotStarted;
         public bool HasReceivedVernier;
         public bool PumpShaftInferred;
         public bool PumpRepaired;
         public bool TurningSelected;
         public int StockCount = 3;
+        public string WorkpieceInstanceId;
         public WorkMemoState WorkMemo = new WorkMemoState();
         public List<string> AcknowledgedDialogueIds = new List<string>();
         public TutorialDetailLevel TutorialDetail = TutorialDetailLevel.Standard;
@@ -147,6 +149,13 @@ namespace LastMachinist.Quest
         public bool ReceiveVernier() { if (Data.State != QuestState.RulerAttempt) return false; Data.HasReceivedVernier = true; return TryAdvance(QuestState.VernierReceived); }
         public bool InferShape() { if (Data.State != QuestState.InspectingBrokenShaft || !Data.HasReceivedVernier || !Data.WorkMemo.TryUnlockTarget()) return false; Data.PumpShaftInferred = true; return TryAdvance(QuestState.ShapeInferred); }
         public bool ConsumeStockAndSelectMaterial() => SelectStock(false);
+        public bool SelectInventoryStock(bool retry = false)
+        {
+            if (!Data.PumpShaftInferred || (!retry && !Data.TurningSelected)) return false;
+            if (Data.State != QuestState.ShapeInferred && Data.State != QuestState.MaterialSelected && Data.State != QuestState.Machining && Data.State != QuestState.FinalInspection) return false;
+            var previous = Data.State; Data.State = QuestState.MaterialSelected;
+            StateChanged?.Invoke(previous, Data.State); return true;
+        }
         public bool SelectTurning()
         {
             if (Data.State != QuestState.ShapeInferred) return false;
@@ -256,8 +265,20 @@ namespace LastMachinist.Quest
         public void AcknowledgeDialogue()
         {
             if (CurrentDialogue == null) return;
+            if (CurrentDialogue.Choices != null && CurrentDialogue.Choices.Count > 0) return;
+            // DAY1 NextNodeId links separate quest checkpoints, not consecutive lines.
+            // Quest events retain ownership of those transitions.
             if (!quest.Data.AcknowledgedDialogueIds.Contains(CurrentDialogue.Id)) quest.Data.AcknowledgedDialogueIds.Add(CurrentDialogue.Id);
             CurrentDialogue = null; DialogueChanged?.Invoke(null);
+        }
+        public void ChooseDialogue(string choiceId)
+        {
+            var choice = CurrentDialogue?.Choices?.Find(x => x.Id == choiceId);
+            if (choice == null) return;
+            var next = dialogue.Get(choice.NextNodeId);
+            if (!quest.Data.AcknowledgedDialogueIds.Contains(CurrentDialogue.Id))
+                quest.Data.AcknowledgedDialogueIds.Add(CurrentDialogue.Id);
+            CurrentDialogue = next; DialogueChanged?.Invoke(next);
         }
         public static string ObjectiveFor(QuestState state)
         {

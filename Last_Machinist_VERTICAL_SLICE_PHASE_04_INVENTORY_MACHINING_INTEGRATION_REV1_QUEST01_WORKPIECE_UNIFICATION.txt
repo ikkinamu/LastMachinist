@@ -1,0 +1,450 @@
+LAST MACHINIST VERTICAL SLICE PHASE 04 INVENTORY → MACHINING INTEGRATION
+REV1 — QUEST 01 INITIAL WORKPIECE UNIFICATION
+
+============================================================ 0. 수정
+목적 ============================================================
+
+기존 QUEST 01 멈춰버린 펌프에서 사용하는 초기 소재가 튜토리얼 전용 소재
+/ 하드코딩된 테스트 Stock처럼 보이거나 동작하지 않도록 수정한다.
+
+앞으로 QUEST 01의 초기 지급 소재도 탐색에서 회수한 공작물과 완전히
+동일한 WorkpieceInstance 규칙을 사용한다.
+
+핵심 원칙:
+
+튜토리얼 전용 공작물은 존재하지 않는다.
+
+QUEST 01에서 사용하는 소재와 탐색에서 회수하는 소재의 차이는 “획득
+경로”뿐이다.
+
+탐색 소재: 3D 탐색 → 회수 → PlayerInventory → WorkpieceInstance
+
+초기 지급 소재: 게임 시작/초기 작업장 보유 → PlayerInventory →
+WorkpieceInstance
+
+Inventory에 존재하는 시점부터 두 소재는 동일하게 취급한다.
+
+============================================================ 1. 초기
+지급 공작물 수량
+============================================================
+
+새 게임 기준 초기 지급 공작물은 정확히 3개로 한다.
+
+각 공작물은 서로 독립된 WorkpieceInstance다.
+
+필수: - 각각 고유 InstanceId 보유. - 같은 WorkpieceDefinition을
+사용하더라도 Stack하지 않음. - 각각 Current Geometry 보유. - 각각
+ConditionProperties 보유. - 각각 IdentificationState 보유. -
+Inventory에서 개별 선택 가능. - 가공/절단/Save/Load 시 개별 상태 유지.
+
+금지: - TutorialStock x3 같은 단순 수량 Stack. - 하나의 Instance를
+3개처럼 UI에서만 표시. - 세 공작물이 동일 InstanceId 공유.
+
+============================================================ 2. 초기
+지급의 의미 ============================================================
+
+초기 지급 3개는 Quest가 생성할 때마다 무한 생성되는 보상 소재가 아니다.
+
+세계 설정상: 작업장에 기존부터 남아 있던 공작물
+
+로 취급한다.
+
+예: - 외삼촌이 남긴 소재 - 작업장 보관대에 남아 있던 봉재
+
+정확한 서사 문구는 Story Phase에서 조정 가능하다.
+
+중요: QUEST 01을 다시 열거나 UI를 다시 로드한다고 초기 공작물 3개가 추가
+생성되면 안 된다.
+
+============================================================ 3. 생성
+시점 ============================================================
+
+권장: 새 게임 초기화 시 PlayerInventory를 구성할 때 초기 공작물 3개의
+WorkpieceInstance를 한 번만 생성한다.
+
+가능한 구조:
+
+NewGameInitialization → CreateInitialWorkshopWorkpieces() →
+WorkpieceInstance × 3 → PlayerInventory.Add()
+
+정확한 함수명은 기존 초기화/Save 구조 AUDIT 후 결정한다.
+
+QUEST 01 Accept() 자체에서 무조건 생성하지 않는 것을 우선한다.
+
+이유: - Quest 수락 반복에 의한 복제 방지. - 작업장에 원래 존재하던
+소재라는 설정 유지. - Inventory 시스템과 자연스럽게 통합.
+
+============================================================ 4. 탐색
+공작물과 동일한 데이터 구조
+============================================================
+
+초기 지급 3개는 Phase 03의 일반 WorkpieceInstance와 같은 필드를
+사용한다.
+
+최소: - InstanceId - WorkpieceDefinitionId - MaterialDefinition
+reference / MaterialId - Current Geometry - ConditionProperties -
+CorrosionCondition - SurfaceCondition - ShapeIntegrity -
+DefectIntegrity - IdentificationState - AcquisitionSource 또는 동등한
+출처 정보가 이미 있다면 해당 값
+
+AcquisitionSource를 새로 추가해야 한다면 게임 로직 분기를 위한 별도
+Workpiece 타입으로 만들지 않는다.
+
+예: AcquisitionSource = InitialWorkshopStock AcquisitionSource =
+ExplorationRecovery
+
+이 값은 기록/표시용 Metadata일 뿐, 가공 규칙을 다르게 만드는 Type Flag가
+아니다.
+
+============================================================ 5. 초기 3개
+Condition ============================================================
+
+초기 지급 공작물도 ConditionProperties를 가진다.
+
+탐색 공작물과 같은 0~100 규칙을 사용한다.
+
+-   CorrosionCondition
+-   SurfaceCondition
+-   ShapeIntegrity
+-   DefectIntegrity
+
+높을수록 상태가 좋다.
+
+세 공작물은 반드시 완전히 같은 상태값일 필요가 없다.
+
+단: QUEST 01 진행에 필요한 최소 하나의 공작물은 현재 펌프 축을
+정상적으로 제작할 수 있는 상태/치수를 가져야 한다.
+
+Phase 04 REV1에서는 초기 3개의 구체적인 치수/상태 수치를 새로 임의
+확정하지 않는다.
+
+기존 QUEST 01 Target과 현재 WorkpieceDefinition을 AUDIT하여 적합한
+Preset을 사용한다.
+
+============================================================ 6.
+Inventory 표시
+============================================================
+
+초기 지급 소재도 일반 Inventory UI에 그대로 표시한다.
+
+탐색에서 회수한 소재와 다른 전용 UI를 만들지 않는다.
+
+표시 항목은 현재 Inventory 규칙을 따른다.
+
+최소: - DisplayName - Current Actual Length - 형상/대표 치수 -
+IdentificationState - ConditionProperties - OverallConditionScore가
+존재하면 해당 값
+
+Phase 06 REV2에서 정의한 Current Actual Length = 현재 Geometry 기준
+원칙을 그대로 적용한다.
+
+초기 지급 소재라고 Nominal Length만 표시하면 FAIL.
+
+============================================================ 7. QUEST 01
+소재 선택 ============================================================
+
+QUEST 01도 일반 가공 흐름을 사용한다.
+
+기존 목표:
+
+가공 방식 선택 → 공작물 선택 → ActiveMachiningWorkpiece → 선반 가공
+
+QUEST 01에서 선택되는 공작물은 실제 PlayerInventory에 존재하는
+WorkpieceInstance여야 한다.
+
+적합성 검사: - Available 상태. - 선반 가공 가능 ShapeType. - Target 최대
+직경을 만들 수 있는 현재 직경/Geometry. - Target 총 길이를 만들 수 있는
+Current Actual Length. - 기타 현재 시스템이 요구하는 가공 여유.
+
+적합하지 않은 초기 공작물을 선택했을 경우 일반 Inventory Workpiece와
+동일한 방식으로 선택을 막거나 이유를 표시한다.
+
+QUEST 01만 별도 Hardcoded Stock을 자동 장착하지 않는다.
+
+============================================================ 8. 기존
+Tutorial Stock 경로 제거
+============================================================
+
+AUDIT 대상 예: - TutorialStock - Quest01Material - PumpShaftTestStock -
+HardcodedStock - DefaultTurningStock - QUEST 01 전용 Instantiate 경로 -
+Quest 시작 시 강제 Stock 생성 - Inventory를 거치지 않는 Lathe Stock 생성
+
+실제 프로젝트에 위 이름이 없을 수 있으므로 문자열 이름 자체를 새로
+만들지 말고 동등한 역할의 기존 코드를 찾는다.
+
+새 일반 흐름이 정상 동작하면 QUEST 01 전용 Stock 경로는 제거하거나
+비활성화한다.
+
+단: 기존 QUEST 01의 Target Geometry / Tutorial Objective / Measurement /
+Evaluation 로직까지 제거하는 것은 아니다.
+
+제거 대상은 공작물 획득 및 선반에 공급하는 별도 전용 경로 다.
+
+============================================================ 9.
+ActiveMachiningWorkpiece
+============================================================
+
+QUEST 01에서 선반에 장착된 공작물은 선택한 초기 WorkpieceInstance의
+InstanceId를 끝까지 유지한다.
+
+흐름:
+
+PlayerInventory → Select Instance → Mark InMachining →
+ActiveMachiningWorkpiece → 현재 Geometry로 Stock 생성 → 가공 → 결과
+Geometry를 동일 Instance에 연결/반영
+
+금지: Inventory Instance A 선택 → 선반에서는 별개의 Tutorial Stock B
+생성.
+
+선반 화면의 공작물 Geometry는 선택한 Instance의 실제 Geometry에서
+시작해야 한다.
+
+============================================================ 10. 절단 및
+자투리 ============================================================
+
+초기 지급 공작물도 Phase 06 REV1의 PartingTool 규칙을 그대로 따른다.
+
+즉: - 부분 절입 → 하나의 Instance 유지. - 완전 절단 → WorkpieceInstance
+Split. - Kerf 보존. - 각 결과물 고유 InstanceId. - 남은 자투리도
+Inventory에 보존 가능.
+
+초기 지급 소재라는 이유로 절단 잔재가 삭제되거나 Quest 종료 시 사라지면
+안 된다.
+
+길이 보존:
+
+L_before = L_piece_A + Kerf + L_piece_B
+
+============================================================ 11. QUEST
+01 완료 후 소재
+============================================================
+
+QUEST 01 완료 시 사용하지 않은 초기 지급 공작물은 그대로
+PlayerInventory에 남는다.
+
+사용한 공작물의 남은 자투리도 일반 WorkpieceInstance 규칙에 따라 남는다.
+
+QUEST 완료를 이유로 초기 지급 3개 전체를 삭제하거나 Inventory를
+초기화하지 않는다.
+
+따라서 QUEST 01 이후 플레이어는 남아 있는 소재를 반복 의뢰나 이후 제작에
+재사용할 수 있다.
+
+============================================================ 12. QUEST
+02 이후 탐색 소재와 통합
+============================================================
+
+QUEST 01 이후 탐색에서 새로운 공작물을 회수하면 초기 지급 공작물과 같은
+PlayerInventory 목록에 들어간다.
+
+예:
+
+초기 작업장 소재 A 초기 작업장 소재 B QUEST 01 자투리 C 폐작업장
+탐색에서 회수한 소재 D 폐작업장 탐색에서 회수한 소재 E
+
+모두 동일 WorkpieceInstance 시스템으로 관리한다.
+
+Inventory / Machining Selection / Save / Load에서 획득 경로 때문에 기능
+차이가 생기지 않는다.
+
+============================================================ 13. Save /
+Load ============================================================
+
+초기 지급 공작물 3개도 일반 Inventory Save에 포함한다.
+
+저장: - InstanceId - WorkpieceDefinitionId - Material reference -
+Current Geometry - ConditionProperties - IdentificationState -
+Ownership/Machining State - 기존 시스템에 AcquisitionSource가 있다면
+해당 값
+
+Load 후: - 이미 존재하는 초기 공작물을 다시 생성하지 않는다. - 저장된
+Instance를 그대로 복원한다. - 가공/절단된 Geometry 유지. - Current
+Actual Length 유지. - Condition 유지.
+
+가장 중요한 규칙:
+
+New Game Initialization과 Load Game을 구분한다.
+
+Save를 Load할 때 CreateInitialWorkshopWorkpieces()가 다시 실행되어 3개가
+추가 지급되면 FAIL.
+
+============================================================ 14. 초기
+공작물 중복 방지
+============================================================
+
+다음 상황에서 초기 지급이 중복되지 않아야 한다.
+
+-   QUEST 01 수락
+-   QUEST 01 취소/재개
+-   Quest Window 재오픈
+-   작업장 Scene 재진입
+-   Exploration 후 귀환
+-   Save/Load
+-   UI Refresh
+-   Lathe Scene 재진입
+
+초기 3개 지급은 새 게임 초기화 기준 1회다.
+
+============================================================ 15. OUT OF
+SCOPE ============================================================
+
+본 REV에서 구현하지 않는다:
+
+-   초기 3개 소재의 최종 서사 문구 확정
+-   복잡한 Material Identification 테스트
+-   Condition에 따른 실제 절삭력/공구마모
+-   초기 소재 랜덤 생성
+-   무한 Tutorial Stock
+-   Quest 보상으로 무료 소재 자동 생성
+-   별도 Tutorial Inventory
+-   QUEST 02 본체
+-   탁상드릴 회수/설치
+-   새로운 Material 종류 대량 추가
+
+============================================================ 16. 구현
+순서 ============================================================
+
+STEP 1 QUEST 01의 현재 Stock 생성/공급 경로 AUDIT.
+
+STEP 2 New Game / Load Game 초기화 흐름 AUDIT.
+
+STEP 3 초기 지급 공작물 3개를 일반 WorkpieceInstance로 생성.
+
+STEP 4 PlayerInventory에 1회 지급.
+
+STEP 5 Inventory UI에서 일반 공작물과 동일 표시 확인.
+
+STEP 6 QUEST 01 소재 선택을 일반 Inventory Selection에 연결.
+
+STEP 7 선택 Instance → ActiveMachiningWorkpiece 연결.
+
+STEP 8 기존 QUEST 01 전용 Hardcoded Stock 경로 제거/비활성화.
+
+STEP 9 PartingTool / Actual Length / Save Load 연동 확인.
+
+STEP 10 Regression Test.
+
+============================================================ 17. TEST
+============================================================
+
+TEST 01 — New Game EXPECTED: PlayerInventory에 초기 WorkpieceInstance
+정확히 3개.
+
+TEST 02 — Unique Instance EXPECTED: 세 공작물의 InstanceId가 모두 다름.
+
+TEST 03 — Inventory UI EXPECTED: 일반 탐색 공작물과 같은 UI/정보 구조
+사용.
+
+TEST 04 — Actual Length EXPECTED: 세 공작물 각각 Current Geometry 기준
+실제 길이 표시.
+
+TEST 05 — QUEST 01 Selection EXPECTED: 실제 Inventory Instance를
+선택하여 가공 시작.
+
+TEST 06 — No Hardcoded Stock EXPECTED: 선택 Instance와 무관한 별도
+Tutorial Stock 생성 없음.
+
+TEST 07 — Active Instance EXPECTED: Inventory에서 선택한 InstanceId가
+ActiveMachiningWorkpiece까지 유지.
+
+TEST 08 — Geometry EXPECTED: 선반 초기 Stock 형상이 선택 Instance의 현재
+Geometry와 일치.
+
+TEST 09 — Condition EXPECTED: 초기 공작물도 일반 ConditionProperties
+보유.
+
+TEST 10 — Parting 초기 지급 소재를 완전 절단. EXPECTED: 일반
+WorkpieceInstance Split 규칙 적용.
+
+TEST 11 — Offcut EXPECTED: 절단 잔재가 Inventory에 정상 보존.
+
+TEST 12 — QUEST 01 Complete EXPECTED: 사용하지 않은 초기 소재와 자투리
+유지.
+
+TEST 13 — Exploration Recovery 탐색 소재 회수. EXPECTED: 초기 소재와
+같은 Inventory에 추가.
+
+TEST 14 — Save 초기 소재 일부를 가공한 뒤 Save. EXPECTED: 각
+Instance/Geometry/Condition 저장.
+
+TEST 15 — Load EXPECTED: 저장 상태 그대로 복원.
+
+TEST 16 — No Duplicate On Load EXPECTED: Load 후 초기 소재 3개가 다시
+추가되지 않음.
+
+TEST 17 — Scene Re-entry 작업장/탐색/선반 Scene 반복 이동. EXPECTED:
+초기 소재 추가 생성 없음.
+
+TEST 18 — Quest Reopen Quest Window 반복 열기/수락 흐름. EXPECTED: 초기
+소재 추가 생성 없음.
+
+TEST 19 — QUEST 01 Regression EXPECTED: 기존 측정/형상
+추론/가공/평가/완료 흐름 정상.
+
+TEST 20 — Console EXPECTED: Error 0.
+
+============================================================ 18. PASS
+============================================================
+
+-   새 게임 초기 공작물 정확히 3개.
+-   모두 일반 WorkpieceInstance.
+-   모두 고유 InstanceId.
+-   Inventory에서 일반 탐색 소재와 동일하게 표시.
+-   Current Actual Length 표시.
+-   QUEST 01이 실제 Inventory 소재를 사용.
+-   별도 Tutorial Stock 미사용.
+-   QUEST 01 완료 후 남은 소재/자투리 유지.
+-   탐색 소재와 동일 시스템으로 통합.
+-   Save/Load 후 중복 지급 없음.
+-   기존 QUEST 01 기능 정상.
+-   Console Error 0.
+
+============================================================ 19. FAIL
+============================================================
+
+-   QUEST 01용 별도 Stock Type 유지.
+-   초기 소재가 Inventory에 존재하지 않음.
+-   초기 3개를 Stack 하나로 처리.
+-   세 소재가 동일 InstanceId 공유.
+-   QUEST 수락 때마다 소재 생성.
+-   Scene 재진입 때마다 소재 생성.
+-   Load할 때 초기 3개 재지급.
+-   Inventory에서 Nominal Length만 표시.
+-   선택한 Instance와 다른 Stock이 선반에 등장.
+-   QUEST 완료 시 남은 초기 소재 강제 삭제.
+-   초기 소재의 절단 자투리 삭제.
+-   탐색 소재와 초기 소재가 서로 다른 가공 규칙 사용.
+
+============================================================ 20. CODEX
+IMPLEMENTATION REPORT
+============================================================
+
+구현 후 다음을 보고한다.
+
+1.  QUEST 01 기존 Stock 공급 경로 AUDIT 결과
+2.  New Game / Load 초기화 경로
+3.  초기 WorkpieceInstance 3개 생성 위치
+4.  초기 3개 Definition / Preset
+5.  InstanceId 생성 방식
+6.  Inventory UI 연동
+7.  Current Actual Length 연동
+8.  QUEST 01 Selection 연동
+9.  ActiveMachiningWorkpiece 연결
+10. 제거/비활성화한 Tutorial Stock 경로
+11. PartingTool/Offcut 연동
+12. Save/Load 및 중복 방지
+13. TEST 01~20 PASS/FAIL
+14. Console Error 수
+15. 남은 TODO
+
+============================================================ 21. 완료
+기준 ============================================================
+
+새 게임 → Inventory 확인 → 초기 공작물 3개 존재 → 각 공작물 개별
+상태/실제 길이 확인 → QUEST 01 수락 → 초기 공작물 중 적합한 Instance
+선택 → 실제 해당 공작물로 선반 가공 → 필요 시 절단/자투리 발생 → QUEST
+01 완료 → 남은 공작물/자투리 Inventory 유지 → 탐색 소재 추가 회수 → 초기
+소재와 동일 방식으로 관리 → Save → Load → 모든 Instance 상태 유지 → 초기
+3개 중복 생성 없음
+
+위 흐름이 정상 동작하면 REV1 완료로 본다.

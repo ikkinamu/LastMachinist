@@ -1,0 +1,287 @@
+LAST MACHINIST — VERTICAL SLICE CROSS-PHASE REV 03 — PROLOGUE / DIALOGUE
+UI / ART ASSETS / EXPLORATION RETURN
+
+0.  목적 기존 문서를 재작성하지 않고 다음을 통합 추가한다.
+
+-   New Game 프롤로그
+-   공통 Dialogue / Choice UI 개선
+-   Title Background Image Slot
+-   Exploration Map Background Image Slot
+-   Exploration → Workshop Return CROSS-PHASE REV 01/02 및 기존
+    Phase/PATCH 규칙을 유지한다. 이미지 생성/제작 자체는 OUT OF
+    SCOPE이며 Placeholder/교체 가능한 Asset Slot만 구현한다.
+
+1.  IMPLEMENTATION AUDIT 구현 전 반드시 확인:
+
+-   Title/Boot/New Game Entry/DAY 1/Quest01 진입 구조
+-   REV02 Start/Continue/New Game/Save/ESC/Quit
+-   기존 Dialogue/Choice/Cutscene/Timeline/Fade 시스템
+-   Input Context/Modal/Cursor
+-   Exploration 진입/복귀 및 Recovery Session
+-   Phase07 Map UI/MapPositionNormalized
+-   SaveData/Progression 구조 기존 Manager/System을 우선 확장하고 중복
+    Manager를 만들지 않는다.
+
+2.  NEW GAME FLOW Title → Start 또는 확인된 New Game → New Game Entry →
+    Prologue → 현재의 빈 작업장 → LAST MACHINIST → DAY 1 — 삼촌의 작업장
+    → 기존 DAY 1 → 박성철 Intro → 이서연 → MAIN QUEST 01.
+
+프롤로그는 New Game에서 재생한다. Completed Save의 Continue에서는 강제
+재생하지 않는다. 새 게임이면 다시 재생 가능. 권장 상태: NotStarted /
+InProgress / Completed.
+
+3.  PROLOGUE STORY SCOPE 기존 Story Canon 유지: 세계 붕괴/전쟁 → 어린
+    주인공과 김영호의 벙커 사건 → 김영호 생존/재회 → 주인공 양육 →
+    작업장에서 가공 기술 전수 → 성장/역할 전환 → 김영호의 마지막 시기 →
+    작업장 계승 → 현재 빈 작업장 → DAY 1. 기존에 확정되지 않은 부모 사망
+    방식 등을 임의 확정하지 않는다. 직접적/그래픽한 죽음 묘사는 요구하지
+    않는다.
+
+4.  PROLOGUE PRESENTATION 정지 일러스트 + Fade/CrossFade + 느린
+    Pan/Zoom + 암전 + Dialogue/Choice UI. 한 줄 대사마다 이미지를
+    교체하지 않는다. 한 Beat에서는 같은 이미지를 유지하고 중요한 장면
+    전환에서만 CrossFade.
+
+5.  PROLOGUE ART PLAN — EXTERNAL ART REQUIRED 실제 이미지 제작은 하지
+    않는다. 교체 가능한 Slot을 만든다. 권장 16:9.
+
+Cut01: 붕괴/전쟁 분위기. Cut02: 벙커 입구, 어린 주인공과 김영호. Cut03:
+닫히는 벙커 문, 문틈 너머 김영호. 핵심 대사 “괜찮을 거다.” Cut04: 시간이
+지난 뒤 김영호 생존/재회. Cut05: 작업장에서 김영호에게 배우는 어린
+주인공. Cut06: 같은/유사 구도에서 성장한 주인공이 기계를 다루고 김영호가
+지켜봄. Cut07: 김영호의 마지막 시기. “내가 없으면 누가 마을에 필요한
+것을 만들까.” Cut08: 현재의 빈 작업장. 이후 LAST MACHINIST → DAY 1.
+
+이미지에는 대사/선택지/DAY/Quest/Button을 Bake하지 않는다.
+
+6.  COMMON DIALOGUE UI 금지: 대사 표시 → 대사창 닫기 → 별도 버튼 클릭 →
+    대사창 다시 열기.
+
+Conversation 동안 Dialogue Window는 유지한다. 일반 대사는 기존 Input
+System과 통합된 Click/Space/Enter 등으로 다음 Line 진행.
+
+7.  CHOICE UI 선택지는 Dialogue Window 바로 위 Choice Button Group으로
+    표시.
+
+예: [제가 할게요.] […] —————————- 김영호 내가 없으면 누가 마을에 필요한
+것을 만들까. —————————-
+
+Choice 표시 중 일반 Next 입력을 막는다. 선택하면 Dialogue Window를 닫지
+않고 즉시 다음 Dialogue로 연결한다. 별도 Confirm/Close 버튼을 요구하지
+않는다.
+
+프롤로그 Choice: [제가 할게요.] […] 두 선택 모두 Main Progression 결과는
+동일하다. 기존 구조가 자연스럽게 지원하면 optional narrative flag 기록
+가능. 이 선택 하나 때문에 거대한 Branch System을 만들지 않는다.
+
+공통 Dialogue/Choice UI는 향후 박성철/이서연/Quest/Exploration Event에도
+재사용 가능하게 한다.
+
+8.  TITLE BACKGROUND IMAGE 현재 단색 검정 Title 배경을 교체 가능한 Image
+    Slot 구조로 변경. EXTERNAL ART REQUIRED: Title Background Image.
+    실제 이미지는 제작하지 않는다. 권장 소재: 빈 작업장 / 어두운 작업장
+    / 황야 속 작업장. Title/Button은 UI Overlay. 가독성용 Dark
+    Overlay/Gradient/Vignette 허용. 16:9/16:10/21:9에서 Aspect 유지,
+    왜곡 금지, Crop 허용. Placeholder 가능. 최종 Asset 교체 시 코드
+    수정이 필요 없어야 한다.
+
+9.  EXPLORATION MAP BACKGROUND IMAGE Phase07 Map에 실제 Background Image
+    Slot을 추가. EXTERNAL ART REQUIRED: Exploration Map Background
+    Image. 실제 이미지는 제작하지 않는다.
+
+원본 이미지에는 다음을 Bake하지 않는다: Region Name, ?, Quest Marker,
+Discovery State, Selection Highlight, Accessibility State, Major
+Discovery Marker, 설명 Text.
+
+모두 Unity UI Overlay: Map Background └ Marker Container ├ Region Marker
+├ Rumored ? ├ Quest Marker ├ Discovery Overlay └ Selection Highlight
+
+기존 MapPositionNormalized 유지. Pixel 좌표 하드코딩 금지. Hidden=마커
+없음, Rumored=?, Discovered=실제 Region Marker/정보. Region Discovery와
+Accessibility는 별개. 기존 Region Info Panel 유지. Aspect 유지, 왜곡
+금지. Crop 시 Background 실제 표시 Rect와 Marker Container 좌표가
+일치해야 한다. Asset 교체만으로 지도 변경 가능해야 한다.
+
+10. EXPLORATION → WORKSHOP RETURN Phase01의 Workshop → Map → Explore →
+    Return이 실제 Player-facing UI에서 접근 가능해야 한다.
+
+Exploration Context ESC Menu: [계속하기] [작업장으로 복귀] [저장] [설정]
+[게임 종료]
+
+[작업장으로 복귀] 선택: “탐색을 종료하고 작업장으로 돌아가시겠습니까?”
+[취소] [복귀]
+
+취소 → System Menu 복귀. 복귀 → 안전한 Return Flow.
+
+권장 Return Flow: 1) World/Interaction Input 차단 2) 이미 회수 성공한
+Item/Workpiece 확인 3) Inventory/Persistent State 확정 4) 중복 Instance
+방지 5) Exploration Session 정리 6) Workshop 전환 준비 7) Workshop Scene
+이동 8) 정상 복귀 확인 9) 안전한 Auto Save
+
+Scene 파괴 후 Recovery 데이터를 뒤늦게 Inventory에 반영하는 구조는 금지.
+
+회수한 Workpiece는 Phase04 REV2 Non-Stack 유지. 동일 Definition이어도
+각각 고유 InstanceId.
+
+[작업장으로 복귀] = 탐색 Session 종료 후 게임 계속. [게임 종료] = REV02
+프로그램 종료 Flow. 둘을 같은 명령으로 만들지 않는다.
+
+일반 Context ESC: [계속하기] [저장] [설정] [게임 종료] Exploration
+Context만 Return Action을 추가한다. 별도 System Menu를 복제하지 말고
+Context-aware하게 확장한다.
+
+11. SAVE / CONTINUE REV02 규칙 유지: Manual Save / Auto Save / Latest
+    Valid Save / Rolling Backup / Continue / Corrupt Save Fallback.
+
+Prologue Completed 상태 저장. Completed Save Continue → 프롤로그 반복
+없음. New Game → Prologue 상태 초기화. 프롤로그 도중 저장은 기존
+Architecture AUDIT 결과에 따르며, 최소 요구는 Completed 상태의 확실한
+저장이다.
+
+Exploration Return 후 상태도 정상 Save되어 Continue 후보가 된다.
+
+12. ART ASSET REFERENCES 최소 교체 가능 Reference:
+
+-   TitleBackgroundImage
+-   ExplorationMapBackgroundImage
+-   PrologueCut01~PrologueCut08
+
+기존 Architecture에 맞는 SerializedField/ScriptableObject/Addressable
+등을 사용. 경로 문자열을 여러 코드에 흩뿌려 하드코딩하지 않는다.
+
+13. OUT OF SCOPE
+
+-   실제 이미지 생성/최종 제작
+-   복잡한 3D 컷씬/모션캡처/립싱크
+-   기존 Story Canon 재작성
+-   부모 사망 방식 신규 설정
+-   MAIN QUEST 01 재작성
+-   Bench Drill Quest 본체
+-   Milling Unlock
+-   Region 대량 추가
+-   Cloud Save
+-   Voice Acting
+-   대규모 Branching Story System
+
+14. IMPLEMENTATION ORDER
+
+1)  관련 시스템 AUDIT
+2)  New Game Entry/DAY1 확인
+3)  기존 Dialogue UI를 공통 Dialogue/Choice UI로 확장
+4)  Dialogue 위 Choice Group 구현
+5)  Illustration Slot/Cutscene Sequence 구현
+6)  Prologue State/Save 연동
+7)  Cut01~08 Placeholder Flow 구현
+8)  DAY1/Quest01 연결 검증
+9)  Title Background Slot
+10) Map Background Slot
+11) Map Overlay/Normalized Marker 검증
+12) Exploration ESC Return Action
+13) Return Confirmation
+14) Recovery Commit → Session Cleanup → Workshop → Auto Save
+15) REV01/REV02 Regression
+16) Aspect Ratio/Player Build Test
+
+15. TESTS 01 New Game → Prologue. 02 Completed Save Continue → 프롤로그
+    반복 없음. 03 New Game Again → 프롤로그 재생 가능. 04 Cut01~08 순서
+    정상. 05 Fade/CrossFade/Pan/Zoom 정상. 06 대사마다 Window가 닫히지
+    않음. 07 일반 Dialogue 진행 정상. 08 Choice가 Dialogue 바로 위 표시.
+    09 Choice 중 Next 입력으로 건너뛰기 불가. 10 Choice 후 Window
+    유지하며 다음 Line 연결. 11 [제가 할게요.] 정상 진행. 12 […] 정상
+    진행. 13 두 Choice 모두 동일 Main Progression. 14 Prologue → LAST
+    MACHINIST → DAY1 정상. 15 Quest01 Trigger 회귀 없음. 16 Title
+    Background Placeholder 정상. 17 Title Asset 교체만으로 변경. 18
+    Title 16:9/16:10/21:9 왜곡 없음. 19 Map Background Placeholder 정상.
+    20 Map Asset 교체만으로 변경. 21 Region/?/Quest Marker가
+    Background와 분리. 22 Hidden Region 마커 없음. 23 Rumored Region ?
+    표시. 24 Discovered Region Marker/정보 표시. 25
+    MapPositionNormalized 위치 유지. 26 Map 16:9/16:10/21:9 왜곡/마커
+    어긋남 없음. 27 Exploration ESC에 [작업장으로 복귀]. 28 Return
+    Cancel → 탐색 유지. 29 Return Confirm → Workshop 정상 복귀. 30 회수
+    Workpiece Inventory 유지. 31 복수 Workpiece 각각 고유 InstanceId. 32
+    Return 중 중복 Recovery 없음. 33 Return 후 안전한 Auto Save. 34
+    재실행 Continue 후 Inventory 정상. 35 Game Exit와 Workshop Return
+    서로 다른 Flow. 36 Exploration Game Exit는 REV02 Confirmation. 37
+    Return Cancel/Resume 후 WASD/Mouse Look 복구. 38 Prologue Completed
+    Save/Load 정상. 39 REV01 Quest01 Unlock 규칙 유지. 40 Console Error
+    0.
+
+16. PASS
+
+-   New Game 프롤로그 정상.
+-   Continue 프롤로그 강제 반복 없음.
+-   Story Canon 유지.
+-   Cut01~08 교체 가능한 Slot.
+-   Dialogue Window 지속.
+-   Choice가 Dialogue 위에 자연스럽게 표시.
+-   선택 후 별도 닫기/확인 없이 진행.
+-   Dialogue UI 재사용 가능.
+-   Title Background 교체 가능.
+-   Map Background 교체 가능.
+-   Map 정보는 UI Overlay.
+-   MapPositionNormalized 유지.
+-   Exploration ESC에서 Workshop Return 가능.
+-   Return Confirmation 존재.
+-   Recovery 손실/중복 없음.
+-   Non-Stack 유지.
+-   Return Auto Save 정상.
+-   REV01/02 회귀 없음.
+-   16:9/16:10/21:9 정상.
+-   Console Error 0.
+
+17. FAIL
+
+-   New Game이 Prologue를 건너뜀.
+-   Continue마다 Prologue 반복.
+-   Canon에 없는 사건 임의 확정.
+-   대사마다 Window 닫기 요구.
+-   대사창 닫고 별도 선택 버튼을 눌러야 함.
+-   Choice 중 Next로 선택 건너뜀.
+-   Asset마다 코드 하드코딩.
+-   Title이 단색 검정만 가능.
+-   Background 이미지 왜곡.
+-   Region/Quest/?가 지도 원본에 Bake.
+-   Marker Pixel 하드코딩.
+-   Map 교체 후 Marker 어긋남.
+-   Exploration에 Return 방법 없음.
+-   게임 종료가 탐색 탈출의 유일한 방법.
+-   Return 시 회수 Item 손실/중복.
+-   Exit와 Return이 같은 명령.
+-   중복 Save/Dialogue/Menu Manager 생성.
+-   REV01/02 회귀.
+
+18. CODEX IMPLEMENTATION REPORT 1 AUDIT 결과 2 New Game Entry 구조 3
+    Prologue State 4 Prologue Sequence 방식 5 Illustration Asset Slot 6
+    Cut01~08 상태 7 Dialogue UI 변경 8 Choice UI 변경 9 Choice Input
+    처리 10 Story Canon 변경 여부 11 Title Background 12 Exploration Map
+    Background 13 Map Marker/Normalized 검증 14 Exploration ESC 변경 15
+    Workshop Return Flow 16 Recovery Commit 17 Auto Save 위치 18
+    수정/추가 파일 19 REV01 Regression 20 REV02 Regression 21 TEST01~40
+    PASS/FAIL 22 Console Error 23 Player Build Test 24 EXTERNAL ART
+    REQUIRED 25 남은 TODO
+
+19. EXTERNAL ART REQUIRED
+
+-   Title Background Image
+-   Exploration Map Background Image
+-   Prologue Cut01
+-   Prologue Cut02
+-   Prologue Cut03
+-   Prologue Cut04
+-   Prologue Cut05
+-   Prologue Cut06
+-   Prologue Cut07
+-   Prologue Cut08
+
+이미지 생성은 사용자가 별도로 요청할 때만 진행한다.
+
+20. 완료 기준 NEW GAME: Title → New Game → Prologue → Dialogue/Choice →
+    Empty Workshop → LAST MACHINIST → DAY1 → 기존 Gameplay.
+
+EXPLORATION: Workshop → Map → Explore → Recovery → ESC → Workshop Return
+→ Confirm → Recovery Commit → Workshop → Auto Save.
+
+CONTINUE: 재실행 → Continue → 최신 정상 Save → Prologue 완료 상태 유지 →
+Inventory/Region/Progression 정상 복원.
+
+위 흐름이 실제 Player Build에서 정상 작동하면 CROSS-PHASE REV 03 완료.

@@ -135,7 +135,7 @@ namespace LastMachinist.Tests
         }
         [Test] public void SaveLoadPreservesActiveTargetsAssignmentsAndCompletedResults()
         {
-            var integration = new Quest01Integration(new InventoryState()); var service = integration.RepeatableQuests;
+            var integration = new Quest01Integration(new InventoryState(), new QuestRuntimeState { State = QuestState.Completed, PumpRepaired = true }); var service = integration.RepeatableQuests;
             var q = service.Data.Instances[0]; var item = Add(integration.Inventory);
             service.Accept(q.QuestInstanceId); service.Assign(q.QuestInstanceId, item, Definition);
             var session = Session(integration.Inventory); session.TryBegin(item.InstanceId, _ => true);
@@ -167,8 +167,12 @@ namespace LastMachinist.Tests
         {
             var old = new SaveGameData();
             var restored = SaveGameComposer.Restore(old);
-            Assert.That(restored.RepeatableQuests.Data.Instances.Count, Is.EqualTo(3));
+            Assert.That(restored.RepeatableQuests.Data.Instances.Count, Is.Zero);
+            Assert.That(restored.RepeatableQuests.IsUnlocked, Is.False);
             Assert.That(restored.Inventory.Workpieces, Is.Empty);
+            restored.Quest.Data.State = QuestState.Completed;
+            restored.Quest.Data.PumpRepaired = true;
+            restored.RepeatableQuests.Unlock();
             var save = SaveGameComposer.Capture(restored);
             save.RepeatableQuests.Instances[0].GeneratedTargetGeometry.Dimensions[0].TargetDiameter = float.NaN;
             Assert.Throws<ArgumentException>(() => save.Validate());
@@ -182,7 +186,7 @@ namespace LastMachinist.Tests
             var session=Session(inventory);session.TryBegin(item.InstanceId,_=>true);
             Machine(item.MachiningWorkpiece,q.GeneratedTargetGeometry);session.End();
             Assert.That(service.Deliver(q.QuestInstanceId),Is.False);Assert.That(q.EvaluationFeedback,Does.Contain("절단"));
-            var integration=new Quest01Integration(inventory);
+            var integration=new Quest01Integration(inventory, new QuestRuntimeState { State = QuestState.Completed, PumpRepaired = true });
             var legacy=integration.RepeatableQuests.Data.Instances[0];legacy.GeneratedVariant="A";
             legacy.GeneratedTargetGeometry=RepeatableQuestCatalog.SavedRequirement(RepeatableQuestCatalog.Find(legacy.TemplateId),"A");
             string old=JsonUtility.ToJson(legacy);

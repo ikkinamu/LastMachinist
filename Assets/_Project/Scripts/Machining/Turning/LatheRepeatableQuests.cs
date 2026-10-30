@@ -13,7 +13,8 @@ namespace LastMachinist.Machining.Turning
         public RepeatableQuestService RepeatableQuests => questIntegration?.RepeatableQuests;
         public bool PrepareRepeatableQuest(string id)
         {
-            if (DialogueBlocked || RepeatableQuests?.Find(id)?.State != RepeatableQuestStatus.Active) return false;
+            if (DialogueBlocked || RepeatableQuests == null || !RepeatableQuests.IsUnlocked ||
+                RepeatableQuests.Find(id)?.State != RepeatableQuestStatus.Active) return false;
             OpenPage(HudPage.MachineSelect);
             preparationQuestId = id; inventoryTurningSelected = true; tutorialPreparation = false;
             selectedMachiningId = RepeatableQuests.Find(id).AssignedWorkpieceInstanceId;
@@ -26,7 +27,7 @@ namespace LastMachinist.Machining.Turning
         private void DrawRepeatableQuestWindow(GUIStyle label, GUIStyle button)
         {
             var service = RepeatableQuests;
-            if (service == null) return;
+            if (service == null || !service.IsUnlocked) return;
             GUILayout.BeginArea(new Rect(400, 150, 290, 600), GUI.skin.box);
             repeatableListScroll = GUILayout.BeginScrollView(repeatableListScroll);
             GUILayout.Label("반복 의뢰", label);
@@ -69,7 +70,18 @@ namespace LastMachinist.Machining.Turning
         }
         private void DrawRepeatableTracker(GUIStyle label)
         {
+            if (WorkshopStory != null && questIntegration.EarlyGameUnlocked)
+            {
+                var story = WorkshopStory.Data;
+                if (story.Quest03 == WorkshopQuestStatus.Active)
+                    GUILayout.Label("고정판 · 진행 중\n구멍 가공 → 측정 → 가공 종료 → 퀘스트 창에서 납품", label);
+                else if (story.Quest03 == WorkshopQuestStatus.Offered || story.Quest02 == WorkshopQuestStatus.Offered)
+                    GUILayout.Label("새 의뢰 · 퀘스트 창에서 수락하세요.", label);
+                else if (story.Quest02 == WorkshopQuestStatus.Active)
+                    GUILayout.Label("버려진 작업장\n" + (story.BenchAcquired ? "작업장으로 돌아가 설비를 설치하세요." : "폐작업장을 탐색하세요."), label);
+            }
             var service = RepeatableQuests;
+            if (service == null || !service.IsUnlocked) return;
             var q = service?.ForWorkpiece(ActiveMachiningWorkpiece?.InstanceId) ?? service?.Data.Instances.Find(v => v.State == RepeatableQuestStatus.Active);
             if (q != null)
             {

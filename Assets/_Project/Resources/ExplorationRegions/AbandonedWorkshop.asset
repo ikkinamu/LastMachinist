@@ -23,10 +23,13 @@ MonoBehaviour:
   RumoredInformation:
   - 박성철에게 위치를 전해 들었다.
   - 오래된 소규모 작업장이 있었던 것으로 보인다.
-  - 소형 공작기계가 남아 있을 가능성이 있다.
+  - 전쟁 이후 사용되지 않은 채 남은 물건이 있을 가능성이 있다.
   KnownInformation: []
-  RelatedQuestIds: []
-  MajorDiscoveries: []
+  RelatedQuestIds:
+  - quest_workshop_02
+  MajorDiscoveries:
+  - Id: bench_drill
+    DisplayName: 탁상드릴
   RevealAfterQuestId: quest_pump_01
   InaccessibleReason: 진입로가 붕괴되어 있습니다.
   MapIcon: {fileID: 0}
@@ -34,4 +37,28 @@ MonoBehaviour:
   MoveSpeed: 4
   MouseSensitivity: 0.12
   InteractionRange: 3
-  Items: []
+  Items:
+  - Definition: {fileID: 11400000, guid: 4f563022092943528908621e8641e58b, type: 2}
+    Position: {x: -4, y: 0.2, z: 4}
+    Scale: {x: 0.2, y: 0.4, z: 1.2}
+    Shape: 3
+  - Definition: {fileID: 11400000, guid: 42e447985e174d9e9217e563363d2d88, type: 2}
+    Position: {x: 4, y: 0.5, z: 2}
+    Scale: {x: 0.4, y: 0.5, z: 0.4}
+    Shape: 2
+  - Definition: {fileID: 11400000, guid: 6b2519dfb14845308283905dbd47d630, type: 2}
+    Position: {x: 0, y: 1, z: 6}
+    Scale: {x: 1, y: 2, z: 1}
+    Shape: 3
+  - Definition: {fileID: 11400000, guid: 55555555555555555555555555555555, type: 2}
+    Position: {x: -4, y: 0.4, z: 2}
+    Scale: {x: 1.2, y: 0.8, z: 0.5}
+    Shape: 3
+  - Definition: {fileID: 11400000, guid: 66666666666666666666666666666666, type: 2}
+    Position: {x: 3, y: 0.5, z: 5}
+    Scale: {x: 1, y: 0.05, z: 0.8}
+    Shape: 3
+  - Definition: {fileID: 11400000, guid: 77777777777777777777777777777777, type: 2}
+    Position: {x: 5, y: 0.5, z: 1}
+    Scale: {x: 0.8, y: 0.8, z: 1.4}
+    Shape: 3

@@ -85,6 +85,8 @@ namespace LastMachinist.Tests
             Assert.That(flow.CompleteIntro(flow.IntroDialogue.Choices[0].Id), Is.True);
             flow.AcknowledgeDialogue();
             Object.FindAnyObjectByType<MvpStartupOverlay>().Resume(boot.Quest01);
+            boot.Quest01.Quest.Data.State = QuestState.Completed;
+            boot.Quest01.RepeatableQuests.Unlock();
             station.OpenPage(HudPage.Exploration);
             var region = System.Array.Find(Resources.LoadAll<ExplorationRegionDefinition>("ExplorationRegions"), r => r.RegionId == "test_yard");
             var questBefore = boot.Quest01.Quest.Data.State;

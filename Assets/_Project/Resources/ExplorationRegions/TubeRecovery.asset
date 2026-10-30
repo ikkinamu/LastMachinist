@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7abd305801444880875a31a270f02ccd, type: 3}
+  m_Name: TubeRecovery
+  ItemId: abandoned_tube
+  DisplayName: 짧은 폐파이프
+  InspectionProperties:
+  - PropertyLabel: 외형
+    PropertyValue: 속이 빈 원형 파이프
+  CanRecover: 1
+  RecoveryId: abandoned_tube_instance
+  Workpiece: {fileID: 11400000, guid: 33333333333333333333333333333333, type: 2}
+  ActualMaterialType: structural_carbon_steel
+  ActualDimensions: {x: 0.4, y: 1, z: 0.4}

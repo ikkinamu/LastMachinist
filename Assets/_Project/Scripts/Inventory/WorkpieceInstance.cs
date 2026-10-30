@@ -34,6 +34,7 @@ namespace LastMachinist.Inventory
         public IdentificationState IdentificationState;
         public string AcquiredRegionId;
         public string AcquiredSessionId;
+        public string AcquisitionSource;
         public WorkpieceAvailability Availability;
         public bool HasMachiningGeometry;
         public LastMachinist.Machining.Core.WorkpieceState MachiningWorkpiece;

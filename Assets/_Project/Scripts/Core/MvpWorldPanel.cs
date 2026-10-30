@@ -62,7 +62,11 @@ namespace LastMachinist.Core
         private float pumpTime;
         private AudioSource pumpAudio;
         private AudioClip pumpClip;
-        public bool DialogueOpen => questFlow?.CurrentDialogue != null;
+        private DialogueNode workshopDialogue;
+        private System.Action workshopDialogueDone;
+        public bool DialogueOpen => workshopDialogue != null || questFlow?.CurrentDialogue != null;
+        private void BeginWorkshopDialogue(string text, System.Action done)
+        { workshopDialogue = new DialogueNode { SpeakerId = "park_seongcheol", Text = text }; workshopDialogueDone = done; lathe?.SynchronizeInputContext(); }
         public bool EnvironmentVisible => farm || lathe == null || lathe.CurrentPage == HudPage.Workshop || DialogueOpen;
         private string toast;
         private float toastUntil;
@@ -277,6 +281,7 @@ namespace LastMachinist.Core
             if (lathe != null) lathe.Notification -= ShowToast;
             if (questFlow != null) questFlow.DialogueChanged -= OnDialogueChanged;
             quest = value; lathe = prototype; questFlow = flow;
+            workshopDialogue = null; workshopDialogueDone = null;
             quest.Quest.StateChanged += OnQuestChanged;
             lathe.Notification += ShowToast;
             lathe.IsDialogueOpen = () => DialogueOpen;
@@ -286,9 +291,15 @@ namespace LastMachinist.Core
         public void BindDialogueIllustrations(CharacterIllustrationBinding[] bindings) { illustrationBindings = bindings; }
         private void DrawDialogue()
         {
+            if (workshopDialogue != null)
+            {
+                DialoguePage.Draw(workshopDialogue, () => { var done = workshopDialogueDone; workshopDialogue = null; workshopDialogueDone = null; done?.Invoke(); lathe?.SynchronizeInputContext(); },
+                    null, CharacterIllustrationResolver.Resolve(workshopDialogue, illustrationBindings));
+                return;
+            }
             var node = questFlow?.CurrentDialogue;
             if (node == null) return;
-            DialoguePage.Draw(node, questFlow.AcknowledgeDialogue, null,
+            DialoguePage.Draw(node, questFlow.AcknowledgeDialogue, questFlow.ChooseDialogue,
                 CharacterIllustrationResolver.Resolve(node, illustrationBindings));
         }
         public void DrawIntroEnvironment()
@@ -299,7 +310,7 @@ namespace LastMachinist.Core
         }
         private void OnGUI()
         {
-            if (quest == null || !enabled) return;
+            if (quest == null || !enabled || GameplaySystemMenu.BlocksGameplay) return;
             GUI.depth = DialogueOpen ? -10 : 20;
             var oldMatrix = GUI.matrix;
             GUI.matrix = MvpUiScale.Apply1280x800();
@@ -318,7 +329,7 @@ namespace LastMachinist.Core
             {
                 DrawWorkshopEnvironment();
             }
-            GUI.enabled = questFlow?.CurrentDialogue == null;
+            GUI.enabled = !DialogueOpen;
             // Shared sidebar draws in front of the world. Keep progression controls
             // in the free band below the scene, outside that sidebar's opaque area.
             GUI.BeginGroup(new Rect(380, 0, 900, 800));
@@ -355,6 +366,17 @@ namespace LastMachinist.Core
             { quest.ReturnToWorkshop(); RestoreLocation("Workshop"); lathe.OpenPage(HudPage.Workshop); }
             if (state == QuestState.Completed && GUI.Button(new Rect(38, 720, 290, 38), farm ? "작업장으로 돌아가기" : "수리한 펌프 확인", button))
                 RestoreLocation(farm ? "Workshop" : "Farm");
+            if (!farm && state == QuestState.Completed)
+            {
+                var story = quest.Story;
+                if (story.Data.Quest02 == WorkshopQuestStatus.NotStarted && GUI.Button(new Rect(350, 720, 360, 38), "박성철에게 위치 정보 듣기", button))
+                    BeginWorkshopDialogue("예전에 저쪽에 작은 작업장이 있었지. 쓸 만한 것이 남아 있을지도 몰라. 지도에 표시해 두겠네.",
+                        () => { quest.LearnAbandonedWorkshopLocation(); story.Offer02(); });
+                else if (story.Data.BenchAcquired && !story.Data.BenchInstalled && GUI.Button(new Rect(350, 720, 360, 38), "회수한 탁상드릴 정비·설치", button))
+                    BeginWorkshopDialogue("구동부를 정비하고 작업대에 단단히 고정했네. 이제 판재와 각재에 구멍을 낼 수 있겠어.", () => story.InstallBench());
+                else if (story.Data.Quest02 == WorkshopQuestStatus.Completed && story.Data.Quest03 == WorkshopQuestStatus.NotStarted && GUI.Button(new Rect(350, 720, 360, 38), "박성철 · 새 의뢰 듣기", button))
+                    BeginWorkshopDialogue("작은 설비를 붙잡아 줄 고정판이 필요하네. 도면대로 두 곳에 구멍을 뚫어 주겠나? 의뢰서를 남겨 둘 테니 준비되면 수락하게.", () => story.Offer03());
+            }
             if (farm)
             {
                 GUI.color = quest.PumpRepaired ? new Color(0.2f, 0.9f, 0.4f) : new Color(0.9f, 0.35f, 0.25f);

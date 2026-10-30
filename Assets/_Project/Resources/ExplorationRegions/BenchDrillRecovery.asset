@@ -1,0 +1,15 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7abd305801444880875a31a270f02ccd, type: 3}
+  m_Name: BenchDrillRecovery
+  ItemId: bench_drill
+  DisplayName: 낡은 탁상드릴
+  InspectionProperties:
+  - PropertyLabel: 설비 상태
+    PropertyValue: 기둥과 테이블은 단단하다. 정비 후 작업장에 설치할 수 있을 것 같다.
+  CanRecover: 1
+  RecoveryId: bench_drill
+  Workpiece: {fileID: 0}

@@ -19,6 +19,7 @@ namespace LastMachinist.Core
         public bool CanRecover = true;
         public string RecoveryId;
         public LastMachinist.Inventory.WorkpieceDefinition Workpiece;
+        public GameObject VisualPrefab;
         // Internal facts are never used by the inspection window.
         public string ActualMaterialType;
         public Vector3 ActualDimensions;

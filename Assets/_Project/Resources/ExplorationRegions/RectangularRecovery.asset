@@ -1,0 +1,15 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7abd305801444880875a31a270f02ccd, type: 3}
+  m_Name: RectangularRecovery
+  ItemId: abandoned_rectangular
+  DisplayName: 짧은 직사각 봉재
+  InspectionProperties:
+  - PropertyLabel: 외형
+    PropertyValue: 서로 다른 폭과 높이의 직사각 봉재
+  CanRecover: 1
+  RecoveryId: abandoned_rectangular
+  Workpiece: {fileID: 11400000, guid: 44444444444444444444444444444444, type: 2}

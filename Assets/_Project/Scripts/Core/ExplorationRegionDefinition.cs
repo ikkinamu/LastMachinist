@@ -20,6 +20,7 @@ namespace LastMachinist.Core
         public string RevealAfterQuestId;
         public string InaccessibleReason = "현재 진입로를 사용할 수 없습니다.";
         public Texture2D MapIcon;
+        public GameObject EnvironmentPrefab;
         public Vector3 SpawnPosition = new Vector3(0, 1, -8);
         public float MoveSpeed = 4;
         public float MouseSensitivity = 0.12f;

@@ -1,0 +1,358 @@
+LAST MACHINIST VERTICAL SLICE PHASE 04 INVENTORY → MACHINING INTEGRATION
+REV2 — WORKPIECE NON-STACK INVENTORY DISPLAY
+
+============================================================ 0. 수정
+목적 ============================================================
+
+현재 QUEST 01 초기 공작물이 Inventory에서
+기계구조용 탄소강 봉재 : 2개처럼 일반 수량형 아이템으로 묶여 표시되는
+문제를 수정한다.
+
+핵심 원칙: - WorkpieceInstance는 Stack Item이 아니다. - 초기 지급 3개를
+포함한 모든 공작물은 탐색 회수 공작물과 동일한 Inventory 규칙을
+사용한다. - 동일 Material / 동일 WorkpieceDefinition / 동일 치수라도 각
+Instance를 별도 Entry로 표시한다. - UI에서 Count만 숨기는 수정은
+금지한다. 내부 데이터도 실제 개별 WorkpieceInstance여야 한다.
+
+============================================================ 1. 적용
+대상 ============================================================
+
+동일 규칙을 다음 모두에 적용한다.
+
+-   QUEST 01 초기 지급 공작물 3개
+-   탐색에서 회수한 공작물
+-   가공 후 남은 공작물
+-   절단 후 생성된 자투리
+-   향후 Quest/보상/회수로 획득하는 모든 WorkpieceInstance
+
+획득 경로에 따라 Inventory 표시/선택/저장 방식을 다르게 만들지 않는다.
+
+============================================================ 2. 초기
+지급 공작물 ============================================================
+
+새 게임의 초기 공작물은 기존 설정대로 정확히 3개다.
+
+각 공작물은 독립적으로 다음을 가진다.
+
+-   고유 InstanceId
+-   WorkpieceDefinition
+-   MaterialDefinition
+-   Current Geometry
+-   Current Actual Length
+-   ConditionProperties
+-   IdentificationState
+
+세 개가 같은 MaterialDefinition 또는 WorkpieceDefinition을 사용하더라도
+Stack하지 않는다.
+
+FAIL: 기계구조용 탄소강 봉재 : 3개
+
+PASS: 기계구조용 탄소강 봉재 | Ø50 × 120.0 mm
+기계구조용 탄소강 봉재 | Ø50 × 120.0 mm
+기계구조용 탄소강 봉재 | Ø50 × 120.0 mm
+
+표시 이름과 치수가 같아도 내부적으로 서로 다른 Instance이며 각각 별도
+행이다.
+
+============================================================ 3.
+Inventory Entry 규칙
+============================================================
+
+Workpiece Inventory List의 Entry 1개는 항상 WorkpieceInstance 1개를
+의미한다.
+
+금지: - WorkpieceDefinition별 Grouping → Count - MaterialDefinition별
+Grouping → Count - DisplayName별 Grouping → Count - 환봉 x3 -
+탄소강 소재 (3) - 기계구조용 탄소강 봉재 : 2개
+
+일반 소비 아이템이 별도 Stack 시스템을 사용하더라도
+WorkpieceInstance에는 적용하지 않는다.
+
+============================================================ 4.
+Inventory List 표시
+============================================================
+
+각 공작물 Entry는 개별 실물 공작물을 구분할 수 있는 정보를 표시한다.
+
+최소 권장: [DisplayName] | [대표 치수] | L [CurrentActualLength] mm
+
+원형 봉재 예: 기계구조용 탄소강 봉재 | Ø50 | L 120.0 mm
+
+또는: 기계구조용 탄소강 봉재 | Ø50 × 120.0 mm
+
+규칙: - Current Actual Length는 Current Geometry에서 가져온다. - Nominal
+Length를 현재 실제 길이처럼 표시하지 않는다. - UI용 Count로 합치지
+않는다. - 동일 이름/치수라도 Instance별 별도 Entry다.
+
+============================================================ 5.
+Inventory Detail
+============================================================
+
+공작물 하나를 선택하면 해당 Entry가 참조하는 정확한 WorkpieceInstance의
+정보를 표시한다.
+
+최소: - DisplayName - 현재 형상 - 현재 대표 직경/치수 - 현재 실제 길이 -
+Material Identification State - Material 정보 - ConditionProperties -
+OverallConditionScore가 존재하면 해당 값
+
+InstanceId는 디버그에는 사용할 수 있으나 Player UI에 반드시 노출할
+필요는 없다.
+
+============================================================ 6. 탐색
+회수 공작물과 UI 통일
+============================================================
+
+초기 지급 공작물과 탐색 회수 공작물은 동일 Inventory Entry
+Prefab/View/Binding 경로를 사용한다.
+
+금지: - TutorialWorkpieceEntry - ExplorationWorkpieceEntry 처럼 획득
+경로별 UI를 따로 만드는 것.
+
+권장: WorkpieceInventoryEntry → WorkpieceInstance 하나를 Binding
+
+획득 Source는 Metadata로 보존할 수 있지만 Stack 여부나 가공 규칙을
+바꾸지 않는다.
+
+============================================================ 7.
+Selection 규칙
+============================================================
+
+공작물 선택은 종류/Stack 선택이 아니라 정확한 WorkpieceInstance 하나를
+선택한다.
+
+예: 1. 기계구조용 탄소강 봉재 | Ø50 × 120.0 2. 기계구조용 탄소강 봉재 |
+Ø50 × 120.0 3. 기계구조용 탄소강 봉재 | Ø50 × 120.0
+
+2번 선택 → InstanceId B 선택 → Instance A/C에는 영향 없음.
+
+Machining Selection도 동일 원칙을 사용한다.
+
+============================================================ 8. 가공 후
+개별 상태 ============================================================
+
+공작물 하나를 가공하면 선택 Instance의 Geometry만 변경한다.
+
+가공 전: A | Ø50 × 120.0 B | Ø50 × 120.0 C | Ø50 × 120.0
+
+B를 Facing하여 115.0 mm로 변경한 경우:
+
+A | Ø50 × 120.0 B | Ø50 × 115.0 C | Ø50 × 120.0
+
+이후 다시 기계구조용 탄소강 봉재 : 3개로 합치면 FAIL.
+
+============================================================ 9. 절단 후
+Inventory ============================================================
+
+Phase 06 PartingTool로 공작물이 분할되면 각 결과 WorkpieceInstance도
+별도 Entry다.
+
+예: B | Ø50 × 115.0
+
+완전 절단 후: B1 | Ø50 × 80.0 B2 | Ø50 × 32.0 Kerf = 3.0
+
+B1/B2를 각각 표시한다. 동일 Material이라는 이유로 기존 소재와 Stack하지
+않는다.
+
+============================================================ 10. 데이터
+구조 AUDIT ============================================================
+
+Codex는 먼저 현재 Inventory 구현을 확인한다.
+
+특히: - Inventory Item grouping 로직 - Dictionary<ItemDefinition, int>
+또는 유사 Quantity 구조 - quantity / count 기반 저장 - DisplayName 기준
+GroupBy - Material 기준 GroupBy - QUEST 01 초기 소재 생성 코드 -
+WorkpieceInstance 목록 - Inventory UI Binding - Machining Selection UI
+Binding
+
+현재 기계구조용 탄소강 봉재 : 2개가 표시되는 정확한 원인을 확인한 후
+수정한다.
+
+단순히 UI 문자열에서 : 2개만 제거해서는 안 된다. 내부적으로 실제
+WorkpieceInstance들이 개별 존재하는지 확인한다.
+
+============================================================ 11. 일반
+Stack Item 시스템과 분리
+============================================================
+
+프로젝트에 일반 아이템용 Stack 시스템이 이미 있다면 전체를 제거하지
+않는다.
+
+일반 소비품/자원: ItemDefinition + Quantity 사용 가능.
+
+공작물: WorkpieceInstance Collection 사용.
+
+Workpiece를 Quantity 기반으로 변환하지 않는다.
+
+============================================================ 12. Save /
+Load ============================================================
+
+Save에서도 공작물을 Count로 압축하지 않는다.
+
+FAIL 개념: Item = CarbonSteelRoundBar Count = 3
+
+PASS 개념: Workpieces - Instance A: Definition + Geometry + Condition +
+IdentificationState - Instance B: Definition + Geometry + Condition +
+IdentificationState - Instance C: Definition + Geometry + Condition +
+IdentificationState
+
+Load 후에도 각각 별도 Entry로 복원한다.
+
+============================================================ 13. QUEST
+01 호환 ============================================================
+
+QUEST 01도 정확한 Instance 하나를 선택한다.
+
+금지: 기계구조용 탄소강 봉재 : 2개 → 하나 사용 → Count 1 감소
+
+사용: Instance A / B / C 중 하나 선택 → 해당 Instance의 Ownership State
+Available → InMachining
+
+나머지 Instance는 그대로 유지한다.
+
+============================================================ 14. OUT OF
+SCOPE ============================================================
+
+-   초기 지급 공작물 개수 변경
+-   초기 3개의 최종 치수 재설계
+-   Material Identification 테스트
+-   일반 소비 아이템 Stack 시스템 제거
+-   Inventory 전체 UI 재설계
+-   QUEST 01 Target 변경
+-   탐색 회수 방식 변경
+-   Condition 물리 효과 추가
+
+============================================================ 15. 구현
+순서 ============================================================
+
+STEP 1 기계구조용 탄소강 봉재 : N개 생성 원인 AUDIT.
+
+STEP 2 초기 지급 공작물이 실제 WorkpieceInstance인지 확인.
+
+STEP 3 Workpiece를 Quantity/Grouping 대상에서 제외.
+
+STEP 4 Workpiece Inventory Entry를 Instance 단위 Binding으로 변경.
+
+STEP 5 Current Geometry 기반 치수/길이 표시.
+
+STEP 6 Machining Selection도 Instance 단위로 통일.
+
+STEP 7 Save/Load가 Instance별 상태를 보존하는지 확인.
+
+STEP 8 탐색 회수 공작물과 동일 UI/Binding 경로인지 확인.
+
+STEP 9 Parting 결과물 개별 Entry 확인.
+
+STEP 10 Regression Test.
+
+============================================================ 16. TEST
+============================================================
+
+TEST 01 — Initial Count 새 게임. EXPECTED: 초기 WorkpieceInstance 정확히
+3개.
+
+TEST 02 — No Stack EXPECTED: 기계구조용 탄소강 봉재 : 3개 표시 없음.
+
+TEST 03 — Individual Entries EXPECTED: 초기 공작물 3개 각각 별도 Entry.
+
+TEST 04 — Unique Instance EXPECTED: 세 Entry가 서로 다른 InstanceId
+참조.
+
+TEST 05 — Same Definition 동일 Definition 3개. EXPECTED: Stack되지 않음.
+
+TEST 06 — Same Geometry 동일 치수 3개. EXPECTED: Stack되지 않음.
+
+TEST 07 — Selection 두 번째 Entry 선택. EXPECTED: 정확히 두 번째
+Instance 선택.
+
+TEST 08 — Machining 선택 Instance 가공. EXPECTED: 선택 Instance
+Geometry만 변경.
+
+TEST 09 — Other Instances EXPECTED: 나머지 Instance Geometry/Condition
+변화 없음.
+
+TEST 10 — Actual Length EXPECTED: 각 Entry에 해당 Instance의 Current
+Actual Length 표시.
+
+TEST 11 — Exploration Recovery 같은 Definition 소재를 탐색에서 추가
+회수. EXPECTED: Count 증가가 아니라 새 Entry 추가.
+
+TEST 12 — Parting 공작물 완전 절단. EXPECTED: 결과 조각 각각 별도 Entry.
+
+TEST 13 — Save 서로 다른 길이의 동일 Definition 공작물 저장. EXPECTED:
+개별 Instance 상태 저장.
+
+TEST 14 — Load EXPECTED: 각 Instance가 개별 Entry로 복원.
+
+TEST 15 — No Merge After Load EXPECTED: Load 후 같은 Definition끼리
+Stack되지 않음.
+
+TEST 16 — QUEST 01 초기 소재 선택 후 가공. EXPECTED: Quantity 감소가
+아닌 Instance State 변경.
+
+TEST 17 — Inventory Regression EXPECTED: 일반 Inventory 기능 정상.
+
+TEST 18 — Exploration Regression EXPECTED: 탐색 회수 정상.
+
+TEST 19 — Machining Regression EXPECTED: 가공/측정/평가 정상.
+
+TEST 20 — Console EXPECTED: Error 0.
+
+============================================================ 17. PASS
+============================================================
+
+-   초기 공작물 3개가 각각 별도 WorkpieceInstance Entry.
+-   재료명 : N개 형식으로 공작물을 Stack하지 않음.
+-   동일 Definition/Material/Geometry라도 개별 표시.
+-   각 Entry가 정확한 Instance를 참조.
+-   Current Actual Length 개별 표시.
+-   탐색 회수 공작물과 동일 UI/Binding 사용.
+-   가공 시 선택 Instance만 변경.
+-   절단 조각도 개별 Entry.
+-   Save/Load 후 개별 상태 유지.
+-   QUEST 01이 Instance 기반 선택 사용.
+-   Console Error 0.
+
+============================================================ 18. FAIL
+============================================================
+
+-   기계구조용 탄소강 봉재 : 2개/3개 유지.
+-   UI에서 Count만 숨기고 내부 데이터는 Stack 상태.
+-   동일 Definition 공작물을 GroupBy 처리.
+-   Workpiece를 Quantity로 저장.
+-   초기 소재와 탐색 소재의 Inventory UI가 서로 다름.
+-   하나를 가공했는데 동일 Stack 전체 상태 변경.
+-   절단 자투리가 기존 Stack에 합쳐짐.
+-   Save/Load 후 Instance가 합쳐짐.
+-   Current Actual Length 대신 Nominal Length만 표시.
+
+============================================================ 19. CODEX
+IMPLEMENTATION REPORT
+============================================================
+
+구현 완료 후 다음을 보고한다.
+
+1.  기계구조용 탄소강 봉재 : N개 발생 원인
+2.  기존 Inventory 데이터 구조
+3.  WorkpieceInstance 저장 구조
+4.  수정한 Workpiece Grouping/Quantity 로직
+5.  WorkpieceInventoryEntry Binding 구조
+6.  초기 지급 3개 표시 결과
+7.  탐색 회수 공작물과 UI 통합 결과
+8.  Machining Selection Instance 연결
+9.  Current Actual Length 표시
+10. Parting 결과 Entry 처리
+11. Save/Load 처리
+12. TEST 01~20 PASS/FAIL
+13. Console Error 수
+14. 남은 TODO
+
+============================================================ 20. 완료
+기준 ============================================================
+
+새 게임 → Inventory 진입 → 초기 공작물 3개가 각각 별도 행으로 표시 →
+하나 선택 → 해당 Instance로 선반 가공 → 길이/형상 변경 → Inventory 복귀
+→ 선택했던 Instance만 변경된 치수 표시 → 같은 종류 소재를 탐색에서 추가
+회수 → 별도 새 Entry로 추가 → Save → Load → 모든 WorkpieceInstance가
+서로 합쳐지지 않고 개별 상태 유지
+
+위 흐름이 정상 동작하면 REV2 완료로 본다.

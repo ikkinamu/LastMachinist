@@ -70,7 +70,7 @@ namespace LastMachinist.Core
         public bool RecordMajorDiscovery(string id, string discoveryId)
         {
             var r = Find(id);
-            if (r == null || !IsVisible(id) || !definitions.TryGetValue(id, out var d) ||
+            if (r == null || r.DiscoveryState != RegionDiscoveryState.Discovered || !definitions.TryGetValue(id, out var d) ||
                 !d.MajorDiscoveries.Any(m => m.Id == discoveryId) || r.MajorDiscoveryIds.Contains(discoveryId)) return false;
             r.MajorDiscoveryIds.Add(discoveryId); return true;
         }

@@ -18,6 +18,7 @@ namespace LastMachinist.Inventory
         public List<InventoryEntry> Entries = new List<InventoryEntry>();
         public List<WorkpieceInstance> Workpieces = new List<WorkpieceInstance>();
         public string ActiveMachiningInstanceId;
+        public bool InitialWorkshopStockCreated;
         public IReadOnlyList<WorkpieceInstance> ListWorkpieces => Workpieces;
         public WorkpieceInstance FindWorkpiece(string instanceId) => Workpieces.Find(w => w.InstanceId == instanceId);
         public bool AddWorkpiece(WorkpieceInstance instance)

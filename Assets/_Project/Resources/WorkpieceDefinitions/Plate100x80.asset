@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0b2bc810cb34c2e9db748015729934c, type: 3}
+  m_Name: Plate100x80
+  WorkpieceDefinitionId: plate_100x80_t5
+  DisplayName: 판재 100×80 t5
+  ShapeType: 1
+  NominalDimensions:
+    Length: 80
+    Width: 100
+    Height: 0
+    Thickness: 5
+  Material: {fileID: 11400000, guid: 46e080c6d1644e69b488909d80f98b62, type: 2}
+  BaseInspectionProperties:
+  - PropertyLabel: 외형
+    PropertyValue: 얇은 판재

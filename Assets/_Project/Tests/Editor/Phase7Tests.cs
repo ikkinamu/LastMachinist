@@ -21,7 +21,9 @@ namespace LastMachinist.Tests
             Assert.That(q.RecoverBrokenShaft(Shaft()), Is.True); Assert.That(q.ReturnToWorkshop(), Is.True); Assert.That(q.AttemptRuler(), Is.True); Assert.That(q.AcquireVernier(), Is.True);
             Assert.That(q.BeginBrokenShaftInspection(), Is.True);
             V03MemoTests.CompleteMemo(q.Quest.Data.WorkMemo);
-            Assert.That(q.InferShape(), Is.True); Assert.That(q.Quest.SelectTurning(), Is.True); Assert.That(q.SelectMaterial(), Is.True); Assert.That(inv.GetQuantity(Quest01Integration.StockItemId), Is.EqualTo(2));
+            Assert.That(q.InferShape(), Is.True); Assert.That(q.Quest.SelectTurning(), Is.True); Assert.That(q.SelectMaterial(), Is.True);
+            Assert.That(inv.GetQuantity(Quest01Integration.StockItemId), Is.Zero);
+            Assert.That(inv.Workpieces.FindAll(w => w.Availability == WorkpieceAvailability.Available).Count, Is.EqualTo(2));
             Assert.That(q.BeginMachining(), Is.True);
             var controller = new LatheController(q.CurrentWorkpiece, new RoughingToolState("rough", "rough", true, 2),
                 initialX: 30, initialZ: 101, chamfer: new ChamferToolState("chamfer", "chamfer", 1));
@@ -62,7 +64,7 @@ namespace LastMachinist.Tests
             Assert.That(inv.GetQuantity(Quest01Integration.StockItemId), Is.Zero);
             Assert.That(q.RetryRejected(), Is.False);
         }
-        [Test] public void ExhaustedStockOffersExplicitPracticeRecovery()
+        [Test] public void ExhaustedStockPreservesRejectedInstanceWithoutFreeGrant()
         {
             var inv = new InventoryState(); inv.Add(Quest01Integration.StockItemId, 1); inv.Add("unrelated", 2);
             var q = new Quest01Integration(inv, new QuestRuntimeState { State = QuestState.ShapeInferred, PumpShaftInferred = true });
@@ -70,11 +72,12 @@ namespace LastMachinist.Tests
             var discarded = q.CurrentWorkpiece;
             discarded.Geometry.RoundProfile.RemoveMaterial(0, 30, 5);
             q.BeginMachining(); q.BeginFinalInspection(true); q.Evaluate(Requirement());
-            Assert.That(q.RestartMachiningPractice(), Is.True);
-            Assert.That(inv.GetQuantity(Quest01Integration.StockItemId), Is.EqualTo(2));
+            Assert.That(q.RestartMachiningPractice(), Is.False);
+            Assert.That(inv.GetQuantity(Quest01Integration.StockItemId), Is.Zero);
+            Assert.That(inv.Workpieces.Count, Is.EqualTo(1));
             Assert.That(inv.GetQuantity("unrelated"), Is.EqualTo(2));
             Assert.That(discarded.Geometry.RoundProfile.Segments[0].Radius, Is.EqualTo(5));
-            Assert.That(q.CurrentWorkpiece.InstanceId, Is.Not.EqualTo(discarded.InstanceId));
+            Assert.That(q.CurrentWorkpiece.InstanceId, Is.EqualTo(discarded.InstanceId));
             Assert.That(q.RestartMachiningPractice(), Is.False);
         }
     }

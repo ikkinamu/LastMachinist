@@ -84,13 +84,22 @@ namespace LastMachinist.Quest
     }
     public sealed class RepeatableQuestService
     {
+        public event Action Changed;
         public RepeatableQuestState Data { get; }
         private readonly InventoryState inventory;
-        public RepeatableQuestService(InventoryState inventory, RepeatableQuestState data = null)
+        private readonly Func<bool> isUnlocked;
+        public bool IsUnlocked => isUnlocked();
+        public RepeatableQuestService(InventoryState inventory, RepeatableQuestState data = null, Func<bool> isUnlocked = null)
         {
-            this.inventory = inventory; Data = data ?? new RepeatableQuestState();
+            this.inventory = inventory; this.isUnlocked = isUnlocked ?? (() => true); Data = data ?? new RepeatableQuestState();
             Validate(Data, inventory);
-            if (!Data.Initialized) { Data.Initialized = true; Refill(); }
+            Unlock();
+        }
+        public void Unlock()
+        {
+            if (!IsUnlocked) return;
+            Data.Initialized = true;
+            Refill();
         }
         public RepeatableQuestInstance Find(string id) => Data.Instances.Find(q => q.QuestInstanceId == id);
         public RepeatableQuestInstance ForWorkpiece(string id) => string.IsNullOrEmpty(id) ? null : Data.Instances.Find(q => q.State == RepeatableQuestStatus.Active && q.AssignedWorkpieceInstanceId == id);
@@ -115,14 +124,14 @@ namespace LastMachinist.Quest
         }
         public bool Accept(string id)
         {
-            var q = Find(id); if (q == null || q.State != RepeatableQuestStatus.Offered) return false;
-            q.State = RepeatableQuestStatus.Active; return true;
+            var q = Find(id); if (!IsUnlocked || q == null || q.State != RepeatableQuestStatus.Offered) return false;
+            q.State = RepeatableQuestStatus.Active; Changed?.Invoke(); return true;
         }
         public bool CanAssign(string id, WorkpieceInstance item, WorkpieceDefinition definition, out string reason)
         {
             reason = "사용 가능한 공작물이 없습니다. 탐색에서 적합한 공작물을 확보하세요.";
             var q = Find(id);
-            if (q == null || q.State != RepeatableQuestStatus.Active || item == null || inventory.FindWorkpiece(item.InstanceId) != item ||
+            if (!IsUnlocked || q == null || q.State != RepeatableQuestStatus.Active || item == null || inventory.FindWorkpiece(item.InstanceId) != item ||
                 item.Availability != WorkpieceAvailability.Available || !InventoryMachiningSession.SupportsTurning(definition)) return false;
             var linked = ForWorkpiece(item.InstanceId);
             if (linked != null && linked != q) { reason = "다른 진행 중인 의뢰에 연결된 공작물입니다."; return false; }
@@ -154,7 +163,7 @@ namespace LastMachinist.Quest
         }
         public bool Deliver(string id)
         {
-            var q = Find(id); if (q == null || q.State != RepeatableQuestStatus.Active) return false;
+            var q = Find(id); if (!IsUnlocked || q == null || q.State != RepeatableQuestStatus.Active) return false;
             var item = inventory.FindWorkpiece(q.AssignedWorkpieceInstanceId);
             if (item == null || !item.HasMachiningGeometry || item.Availability != WorkpieceAvailability.Available)
             { q.EvaluationFeedback = "연결된 공작물의 가공을 종료한 뒤 검사하세요."; return false; }
@@ -164,7 +173,7 @@ namespace LastMachinist.Quest
             // Preserve provenance and conditions; the delivered item cannot be reused for another order.
             q.DeliveredWorkpiece = item.Copy();
             if (!inventory.RemoveWorkpiece(item.InstanceId)) return false;
-            q.State = RepeatableQuestStatus.Completed; Refill(); return true;
+            q.State = RepeatableQuestStatus.Completed; Refill(); Changed?.Invoke(); return true;
         }
         public static void Validate(RepeatableQuestState data, InventoryState inventory)
         {

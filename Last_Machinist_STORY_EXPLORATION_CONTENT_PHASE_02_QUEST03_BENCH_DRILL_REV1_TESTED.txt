@@ -1,0 +1,553 @@
+LAST MACHINIST — STORY & EXPLORATION CONTENT PHASE 02 MAIN QUEST 03 /
+BENCH DRILL MACHINING / NON-ROUND WORKPIECE USE
+
+0.  목적 Phase01 직후를 다룬다. Quest01 → Quest02 버려진 작업장 →
+    탁상드릴 발견/회수/설치 이후, 탁상드릴을 실제 Workshop Machine으로
+    만들고 판재/각재를 처음 실제 가공에 사용한다.
+
+핵심: Quest02 완료 → 새 의뢰 → MAIN QUEST 03 고정판 → Plate 선택 → 고정
+→ X/Y 위치 설정 → Drill Bit 선택 → Spindle → Quill Feed → 실제 Hole 생성
+→ 측정/검사 → 납품 → Quest03 완료.
+
+기존 MVP/PATCH/Vertical Slice/CROSS-PHASE REV01~03/Story Phase01은
+재작성하지 않는다.
+
+1.  AUDIT 구현 전 확인:
+
+-   Quest02 Completed와 Bench Drill Equipment 설치 상태
+-   Workshop Machine 진입 구조
+-   WorkpieceInstance/ShapeType/CurrentGeometry/MachineCompatibility/Non-Stack
+-   SaveLoad/IdentificationState
+-   TrueDimension/InstrumentReading/RecordedMeasurement
+-   Lathe Tool/Spindle/Handwheel/Zero UI
+-   Tailstock Drill/HoleProfile
+-   Quest Offer/Accept/Tracker/Dialogue/Evaluation 기존
+    Inventory/Save/Measurement/Quest Manager를 재사용한다.
+
+2.  QUEST03 START 조건:
+
+-   Quest01 Completed
+-   Quest02 Completed
+-   Bench Drill Acquired/Installed
+
+Quest02 완료 직후 강제 시작하지 않는다. 짧은 Story Beat/NPC 의뢰로 Quest
+Window에 Offered 상태로 등장한다.
+
+3.  MAIN QUEST 03 — 고정판 작은 설비/장치를 고정할 판재가 필요하며 지정
+    위치에 체결용 구멍을 가공한다. UI에서 “탁상드릴 튜토리얼”이라고 직접
+    부르지 않는다. 스토리 의뢰 해결 과정에서 새 장비 사용법을 익힌다.
+
+4.  QUEST FLOW
+
+1)  새 의뢰 Dialogue
+2)  Quest03 Offered
+3)  [수락]
+4)  요구 형상/구멍 확인
+5)  Inventory에서 적합 Plate 선택
+6)  Bench Drill 진입
+7)  공작물 장착/고정
+8)  Drill Bit 선택
+9)  Hole X/Y 위치 설정
+10) Spindle ON
+11) Quill Feed
+12) Hole 생성
+13) 두 번째 Hole 반복
+14) 측정/검사
+15) 가공품 납품
+16) Quest03 Completed
+
+5.  TARGET 첫 Quest는 직사각 Plate + Through Hole 2개. 두 Hole은 같은
+    Diameter, 서로 다른 X/Y Position. Preset Target을 사용한다. 치수는
+    현재 Test Stock/Tool에 맞춰 유효한 값으로 정한다. Hole은 Plate
+    밖/Clamp 영역 밖에 있어야 하며 과도한 공차를 요구하지 않는다.
+
+6.  BENCH DRILL ROLE Lathe Tailstock Drill:
+
+-   회전체 중심축 Hole
+-   Lathe Z 방향
+
+Bench Drill: - 고정 Workpiece - Drill Bit 회전 - X/Y 위치 선택 - Quill Z
+Feed
+
+Hole Geometry/Data는 가능한 범위에서 공통 구조를 쓰되 Machine Control은
+분리한다.
+
+7.  COMPATIBILITY 최소:
+
+-   Plate Compatible
+-   SquareBar Compatible
+-   RectangularBar Compatible
+
+RoundBar/Tube는 안전한 V-block/Fixture가 없으면 Incompatible로 유지
+가능. Incompatible 선택 시 이유 표시, Item 삭제 금지, Available 유지.
+
+8.  WORKPIECE INSTANCE Workshop [탁상드릴] → 실제 Inventory Instance
+    선택 → Bench Drill. 무료 가짜 Test Plate 자동 생성 금지. Quest 지급
+    소재도 실제 WorkpieceInstance여야 한다.
+
+Available → InMachining. 취소/초기화 실패 → Available. 가공 완료 → 같은
+Instance의 CurrentGeometry/HoleFeatures 갱신. InstanceId 유지.
+
+9.  VIEW 최소 표시: Drill Bit / Chuck / Quill / Workpiece / Table /
+    Fixture / Hole Position / Spindle.
+
+권장 Camera: - Perspective/Isometric - Top View
+
+Top View는 X/Y Hole Position 확인용.
+
+10. FIXTURE 손으로 공작물을 들고 정상 가공하는 표현 금지. 최소
+    Vise/Clamp + Fixed State.
+
+Load → Clamp → Machining Enabled. 고정 전 Cutting Feed는 차단하거나
+명확한 Safety Warning. 공작물 고정은 실제 Gameplay State다.
+
+11. X/Y LOCAL COORDINATE Hole 위치는 Workpiece Local Coordinate 기준.
+    권장 기준면/모서리에서 X/Y.
+
+HoleFeature: - FeatureId - CenterX - CenterY - Diameter - Depth -
+IsThrough - ToolId - OperationHistory
+
+World Position을 Source of Truth로 사용하지 않는다.
+
+12. POSITION CONTROL CNC 좌표 자동입력보다 수동 장비 느낌 우선. 권장:
+
+-   X Handwheel
+-   Y Handwheel
+
+현재 상대 X/Y Reading 표시. 기존 Handwheel 코드를 재사용 가능하나 Lathe
+X/Z State와 섞지 않는다.
+
+13. ZERO SET X/Y Reference Zero 지원 가능. Zero Set은 Actual
+    Position/Hole Geometry를 바꾸지 않고 Display/Reference Offset만
+    변경. Actual Position != Display Zero Offset != Relative Reading.
+    PATCH002 철학 유지.
+
+14. DRILL BIT Preset Diameter 여러 개 지원. 예: Ø4/Ø6/Ø8/Ø10. 기존 Tool
+    Data와 통합. 잘못된 Drill Bit를 골랐으면 실제 Hole도 그 Diameter가
+    되어야 한다. Target Diameter로 자동 보정 금지.
+
+15. SPINDLE/CUTTING CONDITIONS 최소 Cutting 조건:
+
+-   Workpiece Loaded
+-   Workpiece Fixed
+-   Drill Bit Mounted
+-   Spindle ON
+-   Bit/Surface Contact
+-   Quill Cutting Feed
+
+조건 미충족 시 Hole Geometry 생성 금지.
+
+16. QUILL Bench Drill 독립 Quill Z. 권장 Dedicated Quill Feed/Handwheel.
+    Approach → Contact → Cutting → Required Depth → Retract. Through
+    Hole은 Workpiece Thickness 기준 판정.
+
+17. HOLE GEOMETRY Hole은 Visual Decal만이 아니라 실제 WorkpieceInstance
+    Feature다. 가공 후 Inventory/Measurement/Evaluation/SaveLoad가 같은
+    HoleFeature를 사용한다.
+
+18. VISUAL HOLE Top View에서 실제 위치/크기 확인 가능. Workpiece 이동과
+    함께 Hole 유지. 가능하면 Mesh/Geometry 기반. 단순화하더라도 Visual과
+    Hole Data의 Position/Diameter 불일치 금지.
+
+19. MULTIPLE HOLES 한 Workpiece에 여러 HoleFeature 저장. Quest03 Hole
+    A/B 각각 독립 FeatureId/Position/Diameter/Depth. 두 번째 Hole이 첫
+    번째를 덮어쓰면 FAIL.
+
+20. MEASUREMENT 기존: TrueDimension / InstrumentReading /
+    RecordedMeasurement 분리 유지.
+
+최소 검사 대상: - Hole Diameter - Hole Position X - Hole Position Y -
+필요 시 Plate 기본 치수
+
+Target/True 값을 자동 공개하지 않는다. 위치 측정 장비가 아직 부족하면
+최소 검사 방식을 명시하고 향후 Height Gauge/Surface Plate 확장 가능하게
+한다.
+
+21. EVALUATION 최소:
+
+-   Hole Count
+-   Hole Diameter
+-   X Position
+-   Y Position
+-   Through/Depth
+-   Shape Compatibility
+
+실제 Workpiece Geometry를 Target Feature와 비교한다. “드릴 버튼을
+눌렀는가”만 검사하면 FAIL.
+
+22. WRONG HOLE / RETRY 잘못 뚫은 Hole은 자동 삭제되지 않는다. Target
+    2개인데 실제 3개면 Extra Hole 감지. 영구 Quest Failure는 피하고 새
+    Workpiece로 재시도 가능.
+
+Retry 버튼으로 기존 Workpiece를 원상복구하지 않는다. 잘못 가공한
+Instance는 그대로 남고 새 소재를 실제 Inventory에서 사용한다.
+
+23. INVENTORY AFTER MACHINING 가공품을 새 가짜 Item으로 교체하지 않는다.
+
+Before: Plate, InstanceId=A, HoleFeatures=[]
+
+After: Plate, InstanceId=A, HoleFeatures=[HoleA,HoleB]
+
+같은 InstanceId 유지.
+
+24. DELIVERY 실제 가공된 WorkpieceInstance를 납품 대상으로 선택. 납품 시
+    Evaluation.
+
+PASS → Quest Complete + 기존 Ownership 규칙에 따라 납품 처리. FAIL →
+결과 표시 + Workpiece 상태 유지 + 다른 소재로 재도전.
+
+25. STORY AFTER QUEST03 의미:
+
+-   주인공이 선반 외 장비를 실제 활용
+-   판재/각재가 실제 Resource로 기능
+-   Workshop 복구 진행
+-   더 복잡한 형상을 요구할 Story 근거 생성
+
+다음 큰 Equipment Progression 후보는 Milling Machine. 이번 Phase에서는
+Milling Quest를 구현하지 않는다. 필요하면 “현재 장비로 만들기 어려운
+형상” 정도의 Hook만 남긴다.
+
+26. UI 기존 Machine UI 철학 유지. 항상 확인: Spindle / Drill Bit /
+    Fixture / X/Y / Quill Z / Workpiece.
+
+Mini Tab 가능: [공구] [고정] [측정] [카메라] 핵심 조작을 깊은 Popup에
+숨기지 않는다.
+
+27. SAVELOAD 저장:
+
+-   Bench Drill Acquired/Installed
+-   Active Workpiece State
+-   HoleFeatures/IDs
+-   Actual Diameter/X/Y/Depth/Through
+-   Ownership
+-   Quest03 State
+-   RecordedMeasurement
+-   필요한 Machine State
+
+Load 후 Hole 소실/위치 변경 금지. REV02 Safe Save 유지.
+
+28. OUT OF SCOPE
+
+-   Milling Machine/Simulator
+-   Reamer
+-   Tapping/Threading
+-   Counterbore/Countersink 전체
+-   Slot Machining
+-   Complex Fixture
+-   Arbitrary-angle Drilling
+-   Automatic Feed
+-   CNC Coordinate Input
+-   Full Tool Wear/Coolant 확장
+-   Full Material Testing
+-   Quest04 전체
+-   외부 Art Asset 생성
+
+29. IMPLEMENTATION ORDER 1 AUDIT 2 Bench Drill Entry/Scene 3 Workpiece
+    Compatibility 4 Fixture 5 X/Y Local Coordinate 6 X/Y Manual Control
+    7 Reference Zero 8 Drill Bit 9 Spindle 10 Quill Z 11 Contact/Cutting
+    12 HoleFeature 13 Multi-Hole 14 Visual Hole 15 Inventory 연동 16
+    Measurement 17 Evaluation 18 Quest03 19 Delivery/Retry 20 SaveLoad
+    21 Regression 22 Player Build
+
+30. TESTS 01 Quest02 미완료 → Quest03 불가 02 Quest02 완료+Bench Drill
+    설치 → Quest03 가능 03 Offered 상태에서 수락 전 진행 불가 04
+    Accept/Tracker 정상 05 Plate 정확한 Instance Load 06 동일 Plate
+    Non-Stack 07 SquareBar Compatibility 08 RectangularBar Compatibility
+    09 Incompatible Shape 안전 차단 10 Cancel→Available 11 Fixture 전
+    Cutting 차단 12 Clamp→Fixed 13 X 이동 14 Y 이동 15 Zero Set이 Actual
+    Position 불변 16 Drill Bit 선택 17 잘못된 Bit도 실제 선택 Diameter로
+    가공 18 Spindle OFF→Hole 없음 19 ON+Contact+Feed→Hole 20 Quill
+    Retract 21 Through 판정 22 Hole A 23 Hole B 24 B가 A를 덮어쓰지 않음
+    25 Local Coordinate 저장 26 Workpiece 이동 후 Hole 관계 유지 27
+    Visual/Data 일치 28 같은 InstanceId 유지 29 가공 후 HoleFeature 유지
+    30 SaveLoad Hole A/B 31 SaveLoad Diameter 32 SaveLoad X/Y 33 Wrong
+    Hole 자동 삭제 안 됨 34 Extra Hole 감지 35 Wrong Diameter 감지 36
+    Wrong Position 감지 37 Correct 2-hole Plate PASS 38 Failed Workpiece
+    재시도 가능 39 Retry가 기존 Workpiece 원복 안 함 40 다른 Instance로
+    재가공 41 Delivery 실제 Instance 평가 42 Quest03 완료 43 Lathe
+    RoundBar 회귀 없음 44 Tailstock Drill 회귀 없음 45 Workpiece Shape
+    Phase01 회귀 없음 46 Bench Drill 획득 상태 정상 47 REV02
+    Save/Continue 정상 48 REV03 Dialogue 정상 49 Quest01/02 Regression
+    없음 50 Console Error 0
+
+31. PASS
+
+-   Quest03이 Quest02 이후 자연스럽게 진행
+-   Bench Drill 실제 Machine
+-   Plate/Square/Rectangular 사용
+-   Fixture Gameplay State
+-   X/Y Local Coordinate
+-   수동 Position Control
+-   Zero/Actual 분리
+-   실제 선택 Drill Diameter 반영
+-   Spindle/Contact/Quill 기반 Cutting
+-   HoleFeature가 WorkpieceInstance에 기록
+-   Multi-Hole 독립 저장
+-   Wrong Hole 영구 반영
+-   실제 Geometry Evaluation
+-   가공 전후 InstanceId 유지
+-   SaveLoad 후 Hole 유지
+-   기존 Lathe/Tailstock/Inventory/Quest 회귀 없음
+-   Console Error 0
+
+32. FAIL
+
+-   버튼 한 번으로 자동 완성
+-   Fixture 없이 정상 가공
+-   Hole이 World Coordinate에만 의존
+-   X/Y 없이 Target 위치 자동 생성
+-   잘못된 Bit도 정답 Diameter로 보정
+-   Spindle OFF/비접촉 상태에서 Hole 생성
+-   Visual-only 또는 Data-only 불일치
+-   두 번째 Hole이 첫 번째 덮어씀
+-   Wrong Hole 자동 삭제
+-   Retry로 소재 마법 복원
+-   Result 가짜 Item으로 교체되어 InstanceId 변경
+-   Evaluation이 실제 Geometry 미사용
+-   Tailstock Drill과 Bench Drill 역할 동일화
+-   기존 시스템 회귀
+
+33. CODEX REPORT 1 AUDIT 2 수정 파일 3 Quest03 Flow 4 Bench Drill Scene
+    5 Compatible Shape 6 Fixture 7 X/Y Coordinate 8 Position Control 9
+    Zero 10 Drill Bit 11 Spindle 12 Quill 13 Cutting 14 HoleFeature 15
+    Multi-Hole 16 Visual 17 Inventory 18 Measurement 19 Evaluation 20
+    Delivery/Retry 21 SaveLoad 22 Quest01 Regression 23 Quest02
+    Regression 24 Lathe Regression 25 Tailstock Regression 26 TEST01~50
+    27 Console Error 28 Player Build 29 TODO
+
+34. 완료 기준 Quest02 Complete → 새 의뢰 → Quest03 고정판 → Plate →
+    Bench Drill → Fixture → X/Y → Drill → 2 Holes → Measure/Evaluate →
+    Delivery → Quest03 Complete.
+
+Progression: Lathe → Exploration → Bench Drill 획득 → Plate/Square 활용
+→ 위치 기반 Hole Machining → 향후 Milling Machine 필요성으로 연결.
+
+실제 Player Build에서 위 흐름과 기존 시스템이 정상 작동하면 Phase02
+완료.
+
+============================================================ REV1 —
+IMPLEMENTATION + EXECUTABLE TEST REQUIREMENT
+============================================================
+
+이 REV는 본 Phase의 TEST 01~50을 단순 체크리스트가 아니라 실제 구현 검증
+절차로 강제한다.
+
+Codex는 코드를 작성한 뒤 테스트 없이 완료 보고하지 않는다.
+
+1.  완료 절차
+
+반드시 다음 순서로 진행한다.
+
+A. 현재 코드 AUDIT B. 구현 C. Compile 확인 D. 가능한 항목에 대해
+EditMode Test 작성/실행 E. 가능한 항목에 대해 PlayMode Test 작성/실행 F.
+수동 Player-facing Test G. Player Build 생성 H. Build에서 핵심
+End-to-End Flow 실행 I. 실패 항목 수정 J. 관련 테스트 재실행 K.
+Regression Test L. 최종 Implementation/Test Report
+
+한 번 테스트해서 실패한 상태로 “TODO”만 남기고 완료 처리하지 않는다.
+
+============================================================ 2.
+AUTOMATED TEST POLICY
+============================================================
+
+자동화 가능한 로직은 가능한 한 Unity Test Framework로 검증한다.
+
+권장 EditMode Test 대상: - Workpiece Shape Compatibility - HoleFeature
+생성/저장 - Multi-Hole 보존 - Local Coordinate - Zero Offset 계산 -
+Drill Diameter 적용 - Through Hole 판정 - Evaluation - Extra Hole 판정 -
+Wrong Diameter 판정 - Wrong Position 판정 - Workpiece State Transition -
+Save/Load Serialization
+
+권장 PlayMode Test 대상: - Bench Drill Scene/Controller 초기화 -
+Workpiece Load - Fixture State - Spindle State - Quill Contact/Cutting -
+X/Y Position Control - Hole Visual/Data 연결 - Quest03 State
+Transition - Delivery Flow - Scene 전환 후 상태 유지
+
+UI/실제 조작감/시각 검증처럼 자동화가 부적합한 항목은 수동 Player Build
+Test로 검증한다.
+
+테스트를 통과시키기 위해 Production Logic을 Test 전용 예외로 우회하지
+않는다.
+
+============================================================ 3. REQUIRED
+END-TO-END PLAYER TEST
+============================================================
+
+최소 한 번 실제 Player-facing Flow를 처음부터 끝까지 실행한다.
+
+START STATE: - Quest02 Completed - Bench Drill Installed - Quest03
+NotStarted - 적합한 Plate Workpiece 보유
+
+FLOW: 1. Quest03 Offered 확인 2. Quest Window에서 [수락] 3. Plate 선택
+4. Bench Drill 진입 5. Workpiece Load 6. Fixture/Clamp 7. X/Y 위치 설정
+8. Drill Bit 선택 9. Spindle ON 10. Quill Feed 11. Hole A 생성 12. 위치
+변경 13. Hole B 생성 14. Measurement/Inspection 15. Machining Complete
+16. 실제 Instance 납품 17. Evaluation PASS 18. Quest03 Completed 19.
+Save 20. 게임 재시작/Continue 21. Quest/Equipment/Inventory 상태 확인
+
+EXPECTED: 전체 흐름에 Soft Lock이 없어야 한다.
+
+============================================================ 4. REQUIRED
+FAILURE-PATH TEST
+============================================================
+
+정상 성공 경로만 테스트하면 안 된다.
+
+최소 다음 실패 경로를 실제로 검증한다.
+
+CASE A — Fixture 없음 EXPECTED: Cutting 불가.
+
+CASE B — Spindle OFF EXPECTED: Hole 생성 없음.
+
+CASE C — Wrong Drill Diameter EXPECTED: 선택한 실제 Diameter로 Hole
+생성. Evaluation에서 오차 검출.
+
+CASE D — Wrong X/Y Position EXPECTED: 실제 잘못된 위치에 Hole 생성.
+Evaluation에서 오차 검출.
+
+CASE E — Extra Hole EXPECTED: 세 번째 Hole이 실제 Workpiece에 남음.
+Evaluation에서 Extra Hole 검출.
+
+CASE F — Retry EXPECTED: 기존 잘못 가공한 Workpiece가 원상복구되지 않음.
+새 WorkpieceInstance로 재시도 가능.
+
+CASE G — Incompatible Shape EXPECTED: Machine Load 차단. Item 손실 없음.
+
+CASE H — Save/Load EXPECTED: HoleFeature A/B와 실제 위치/직경/깊이 유지.
+
+============================================================ 5.
+REGRESSION TEST
+============================================================
+
+Bench Drill 구현 때문에 기존 시스템이 깨지지 않았는지 확인한다.
+
+필수 Regression:
+
+R01 MAIN QUEST 01 정상 R02 MAIN QUEST 02 정상 R03 Quest01 완료 전
+Exploration Lock 정상 R04 Quest01 완료 후 Exploration Unlock 정상 R05
+Repeatable Quest Unlock 정상 R06 Exploration Map 정상 R07 Exploration
+Return → Workshop 정상 R08 Recovered Workpiece Non-Stack 정상 R09
+RoundBar Inventory 정상 R10 Lathe RoundBar Load 정상 R11 Lathe Turning
+정상 R12 Lathe Measurement 정상 R13 Tailstock Center Drill/Drill 정상
+R14 Existing HoleProfile 정상 R15 Save/Continue 정상 R16 Auto Save 정상
+R17 Corrupt Save Fallback 구조 회귀 없음 R18 Dialogue/Choice UI 정상 R19
+Prologue State 정상 R20 Console Error 0
+
+============================================================ 6. BUILD
+TEST ============================================================
+
+Editor Play Mode만 확인하고 완료 처리하지 않는다.
+
+최소 현재 프로젝트의 실제 Target Platform용 Player Build를 생성한다.
+
+Build에서 확인: - Title - Continue/New Game 관련 기존 흐름 - Workshop -
+Inventory - Quest03 - Bench Drill - Input - UI - Save - Continue
+
+Editor-only API가 Player Build를 깨뜨리지 않아야 한다.
+
+Build Failure가 있으면 Phase 완료가 아니다.
+
+============================================================ 7. TEST
+RESULT CLASSIFICATION
+============================================================
+
+각 TEST 01~50 및 REV1 Test는 다음 중 하나로 보고한다.
+
+PASS FAIL BLOCKED NOT APPLICABLE
+
+BLOCKED를 사용할 경우 반드시: - 무엇이 막았는지 - 코드 문제인지 환경
+문제인지 - 재현 방법 - 다음 조치 를 기록한다.
+
+자동화하지 않았다는 이유만으로 테스트 자체를 생략하지 않는다. 자동화가
+어렵다면 Manual Test로 수행한다.
+
+============================================================ 8. FAILURE
+FIX LOOP ============================================================
+
+테스트 실패 시:
+
+FAIL → 원인 분석 → 수정 → 해당 테스트 재실행 → 관련 Regression 재실행
+
+수정 후 이전 PASS를 그대로 가정하지 않는다.
+
+특히 다음 영역 수정 시 관련 Regression을 다시 수행한다.
+
+SaveData 변경 → Save/Continue + 기존 Save Regression
+
+Workpiece Geometry 변경 → Inventory + Lathe + Exploration Recovery
+Regression
+
+Input 변경 → Lathe + Exploration + Bench Drill Input Regression
+
+Quest 변경 → Quest01 + Quest02 + Quest03 Regression
+
+Dialogue 변경 → Prologue + Quest Dialogue Regression
+
+============================================================ 9. TEST
+ARTIFACTS ============================================================
+
+가능하면 테스트 코드는 프로젝트의 기존 Test 폴더/Assembly 구조를 따른다.
+
+새 Test Assembly가 필요하면 Production Assembly 의존성을 불필요하게
+복잡하게 만들지 않는다.
+
+테스트용 임시 Scene/Data가 필요하면 명확한 Test 전용 위치에 둔다.
+
+Production Inventory에 Test Workpiece가 자동 생성되는 식의 Test 흔적을
+남기지 않는다.
+
+============================================================ 10. FINAL
+PASS GATE ============================================================
+
+Phase02 완료 조건:
+
+-   프로젝트 Compile 성공
+-   Quest03 구현 완료
+-   Bench Drill 실제 Hole Machining 가능
+-   TEST 01~50 수행
+-   REV1 Failure Path 수행
+-   Regression R01~R20 수행
+-   실제 Player Build 성공
+-   End-to-End Player Test 성공
+-   Critical/Blocker FAIL 0
+-   Console Error 0
+-   Save/Continue 검증 성공
+
+위 조건 중 하나라도 Critical하게 실패하면 “구현 완료”라고 보고하지
+않는다.
+
+============================================================ 11. CODEX
+FINAL REPORT — REQUIRED
+============================================================
+
+최종 보고는 다음 형식으로 작성한다.
+
+[IMPLEMENTATION] 1. 구현 요약 2. 수정 파일 3. 새 파일 4. Architecture
+변경 5. Quest03 Flow 6. Bench Drill Flow 7. HoleFeature/Geometry 8.
+SaveData 변경
+
+[AUTOMATED TEST] 9. EditMode Test 목록 + 결과 10. PlayMode Test 목록 +
+결과 11. 자동 테스트 총 PASS/FAIL/BLOCKED
+
+[MANUAL TEST] 12. TEST 01~50 결과 13. Failure Path A~H 결과 14.
+Regression R01~R20 결과
+
+[BUILD] 15. Build Target 16. Build 성공/실패 17. Build에서 실행한
+End-to-End Flow 18. Player Build에서 발견한 문제와 수정 내용
+
+[FINAL] 19. Console Error 수 20. 남은 FAIL 21. 남은 BLOCKED 22. 남은
+TODO 23. Phase02 최종 판정: PASS / NOT COMPLETE
+
+============================================================ 12. CODEX
+EXECUTION INSTRUCTION
+============================================================
+
+이 명세를 받은 Codex는 문서만 분석하거나 구현 계획만 작성하고 종료하지
+않는다.
+
+요구 작업: AUDIT → IMPLEMENT → TEST → FIX → RETEST → BUILD → REPORT
+
+실제 Repository를 수정하고, 가능한 테스트를 실제 실행하고, 실패를 수정한
+뒤, 최종 상태를 보고한다.
+
+— REV1 END —

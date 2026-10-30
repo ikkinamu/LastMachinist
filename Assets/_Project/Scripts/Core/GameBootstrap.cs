@@ -32,8 +32,23 @@ namespace LastMachinist.Core
         private LathePrototype lathe;
         private MvpWorldPanel world;
         private MvpStartupOverlay overlay;
+        private GameplaySystemMenu systemMenu;
         private readonly SaveGameStore saveStore = new SaveGameStore();
         private bool checkpointPending;
+        private bool titleHasValidSave, titleHasAnySave;
+        private void QueueAutoSave() => checkpointPending = true;
+        private void SaveAutoEvent() { if (enabled) TrySaveAuto(); }
+        private void BindAutoSaveEvents(Quest01Integration value)
+        {
+            value.RepeatableQuests.Changed += QueueAutoSave;
+            value.ProgressionChanged += QueueAutoSave;
+        }
+        private void UnbindAutoSaveEvents(Quest01Integration value)
+        {
+            if (value == null) return;
+            value.RepeatableQuests.Changed -= QueueAutoSave;
+            value.ProgressionChanged -= QueueAutoSave;
+        }
         private void OnQuestStateChanged(QuestState previous, QuestState current)
         { if (SaveGameComposer.IsCheckpoint(current)) checkpointPending = true; }
         private void LateUpdate()
@@ -42,40 +57,65 @@ namespace LastMachinist.Core
             // State events may precede stock mounting and location changes in the
             // same command. Capture only after those handlers have returned.
             checkpointPending = false;
-            SaveCurrent();
+            TrySaveAuto();
         }
         private void OnDestroy()
-        { if (Quest01 != null) Quest01.Quest.StateChanged -= OnQuestStateChanged; questFlow?.Dispose(); }
+        {
+            if (Quest01 != null) Quest01.Quest.StateChanged -= OnQuestStateChanged;
+            UnbindAutoSaveEvents(Quest01);
+            ExplorationSession.AutoSaveRequested -= SaveAutoEvent;
+            questFlow?.Dispose();
+            if (systemMenu != null) Destroy(systemMenu.gameObject);
+        }
         private SaveGameData CaptureCurrent()
         {
             lathe.SyncInventoryMeasurements();
-            return SaveGameComposer.Capture(Quest01, world.CurrentLocation);
+            var data = SaveGameComposer.Capture(Quest01, world.CurrentLocation);
+            data.ActiveMachineId = lathe.BenchDrill?.Active != null ? "bench_drill" : lathe.ActiveMachiningWorkpiece != null ? "lathe" : null;
+            return data;
         }
-        private void SaveCurrent()
+        private bool TrySaveManual()
         {
-            try { saveStore.Save(CaptureCurrent()); overlay.PersistenceMessage = "저장했습니다."; }
-            catch (System.Exception error) { overlay.PersistenceMessage = "저장하지 못했습니다."; Debug.LogException(error); }
+            try { saveStore.Save(CaptureCurrent()); overlay.PersistenceMessage = "저장했습니다."; return true; }
+            catch (System.Exception error) { overlay.PersistenceMessage = "저장하지 못했습니다."; Debug.LogException(error); return false; }
         }
-        private void LoadCurrent()
+        private void SaveCurrent() => TrySaveManual();
+        private bool TrySaveAuto()
+        {
+            if (lathe?.ActiveMachiningWorkpiece != null || Quest01 == null || world == null) return false;
+            try { saveStore.SaveAuto(CaptureCurrent()); return true; }
+            catch (System.Exception error) { Debug.LogWarning("자동 저장에 실패했습니다: " + error.Message); return false; }
+        }
+        private bool BeginNewGame()
+        {
+            try { saveStore.Delete(); titleHasAnySave = false; titleHasValidSave = false; return true; }
+            catch (System.Exception error) { overlay.PersistenceMessage = "기존 저장을 초기화하지 못했습니다."; Debug.LogWarning(error.Message); return false; }
+        }
+        private bool ContinueGame()
         {
             try
             {
-                var data = saveStore.Load();
-                if (data == null) { overlay.PersistenceMessage = "저장 파일이 없습니다."; return; }
+                var data = saveStore.LoadLatestValid();
+                if (data == null) { overlay.PersistenceMessage = "정상 저장을 찾지 못했습니다."; return false; }
                 var restored = SaveGameComposer.Restore(data, lathe.CreateStockWorkpiece);
                 lathe.RestoreQuest(restored);
                 Quest01.Quest.StateChanged -= OnQuestStateChanged;
+                UnbindAutoSaveEvents(Quest01);
                 Quest01 = restored;
                 Quest01.Quest.StateChanged += OnQuestStateChanged;
+                BindAutoSaveEvents(Quest01);
                 checkpointPending = false;
                 BindQuestFlow();
                 world.Bind(restored, lathe, questFlow);
                 world.RestoreLocation(data.CurrentSceneId);
                 overlay.Resume(restored);
                 overlay.PersistenceMessage = "불러왔습니다.";
+                return true;
             }
-            catch (System.Exception error) { overlay.PersistenceMessage = "불러오지 못했습니다."; Debug.LogException(error); }
+            catch (System.Exception error) { overlay.PersistenceMessage = "불러오지 못했습니다."; Debug.LogException(error); return false; }
         }
+        // F12 debug load is kept outside the normal player flow.
+        private void LoadCurrent() { ContinueGame(); }
         private void Start()
         {
             if (latheSettings == null)
@@ -89,14 +129,21 @@ namespace LastMachinist.Core
             lathe.Initialize(latheSettings, Camera.main);
             lathe.enabled = false;
             var inventory = new InventoryState();
-            inventory.Add(DefinitionIds.StructuralCarbonSteel, 3);
+            LastMachinist.Inventory.InitialWorkshopWorkpieces.EnsureCreated(inventory, System.Guid.NewGuid().ToString("N"));
             Quest01 = new Quest01Integration(inventory, new QuestRuntimeState(), lathe.CreateStockWorkpiece);
+            Quest01.Quest.Data.StockCount = 3;
             Quest01.Quest.StateChanged += OnQuestStateChanged;
+            BindAutoSaveEvents(Quest01);
+            ExplorationSession.AutoSaveRequested += SaveAutoEvent;
             lathe.BindQuest(Quest01);
-            Quest01.AttachWorkpiece(lathe.Controller.Workpiece);
+            Quest01.AttachWorkpiece(inventory.Workpieces[0].MachiningWorkpiece);
+            lathe.MountInitialWorkpiecePreview(inventory.Workpieces[0].MachiningWorkpiece);
             var debug = gameObject.AddComponent<DevelopmentDebugPanel>();
             debug.ReadCurrent = CaptureCurrent; debug.SaveCurrent = SaveCurrent; debug.LoadCurrent = LoadCurrent;
-            debug.AddStock = () => { Quest01.Inventory.Add(Quest01Integration.StockItemId, 1); Quest01.Quest.Data.StockCount = Quest01.Inventory.GetQuantity(Quest01Integration.StockItemId); };
+            debug.AddStock = () => {
+                var definition = Resources.Load<WorkpieceDefinition>("WorkpieceDefinitions/RoundBar50");
+                Quest01.Inventory.AddWorkpiece(definition.CreateInstance(new ConditionProperties(), "debug", System.Guid.NewGuid().ToString("N")));
+            };
             debug.ForceVernier = () => Quest01.Quest.Data.HasReceivedVernier = true;
             debug.ForceInference = () => { Quest01.Quest.Data.PumpShaftInferred = true; Quest01.Quest.Data.WorkMemo.TargetShapeUnlocked = true; };
             debug.TogglePump = () => Quest01.Quest.Data.PumpRepaired = !Quest01.Quest.Data.PumpRepaired;
@@ -113,9 +160,17 @@ namespace LastMachinist.Core
             world.enabled = false;
             overlay = gameObject.AddComponent<MvpStartupOverlay>();
             overlay.Bind(Quest01, lathe, world);
+            overlay.BindPrologue(QueueAutoSave);
             overlay.BindDialogueFlow(questFlow);
             overlay.BindDialogueIllustrations(illustrations);
-            overlay.BindPersistence(SaveCurrent, LoadCurrent, saveStore.Exists);
+            titleHasAnySave = saveStore.HasAnySave();
+            titleHasValidSave = saveStore.HasValidSave();
+            overlay.BindPersistence(SaveCurrent, ContinueGame, BeginNewGame, GameQuit.Perform,
+                () => titleHasValidSave, () => titleHasAnySave);
+            var menuHost = new GameObject("Gameplay System Menu");
+            DontDestroyOnLoad(menuHost);
+            systemMenu = menuHost.AddComponent<GameplaySystemMenu>();
+            systemMenu.Bind(TrySaveManual, GameQuit.Perform, () => overlay != null && overlay.GameStarted, lathe);
             Debug.Log("Last Machinist: QUEST 01 systems loaded; turning station ready.", this);
         }
     }

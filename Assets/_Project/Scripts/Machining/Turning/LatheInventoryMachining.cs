@@ -20,7 +20,20 @@ namespace LastMachinist.Machining.Turning
         private MeasurementSession previousMeasurement;
         private MeasurementPoint[] previousMeasurementPoints;
         public WorkpieceInstance ActiveMachiningWorkpiece => inventoryMachining?.Active;
+        private bool IsQuest01Machining => questIntegration != null && ActiveMachiningWorkpiece != null &&
+            questIntegration.Quest.Data.WorkpieceInstanceId == ActiveMachiningWorkpiece.InstanceId;
         public MeasurementSession CurrentMeasurement => measurement;
+        public string SelectedMachiningInstanceId => selectedMachiningId;
+        public bool PrepareQuest01Workpiece()
+        {
+            if (DialogueBlocked || questIntegration == null || !questIntegration.Quest.Data.PumpShaftInferred ||
+                questIntegration.Quest.Data.State < QuestState.ShapeInferred || questIntegration.Quest.Data.State > QuestState.FinalInspection) return false;
+            OpenPage(HudPage.MachineSelect);
+            tutorialPreparation = true; inventoryTurningSelected = true;
+            questIntegration.Quest.SelectTurning();
+            preparationQuestId = null; selectedMachiningId = null;
+            return true;
+        }
 
         private WorkpieceDefinition ResolveWorkpieceDefinition(string id)
         {
@@ -31,6 +44,7 @@ namespace LastMachinist.Machining.Turning
         public bool SelectInventoryWorkpiece(string id)
         {
             if (ActiveMachiningWorkpiece != null || !MachiningCandidates().Exists(w => w.InstanceId == id)) return false;
+            if (tutorialPreparation && !questIntegration.CanSelectMaterial(id, out inventoryMachiningMessage)) return false;
             if (!string.IsNullOrEmpty(preparationQuestId) && !RepeatableQuests.CanAssign(preparationQuestId, PlayerInventory.FindWorkpiece(id), ResolveWorkpieceDefinition(PlayerInventory.FindWorkpiece(id).WorkpieceDefinitionId), out inventoryMachiningMessage)) return false;
             selectedMachiningId = id; machiningDetailScroll = Vector2.zero; return true;
         }
@@ -42,6 +56,12 @@ namespace LastMachinist.Machining.Turning
             var repeatQuest = RepeatableQuests?.Find(preparationQuestId) ?? RepeatableQuests?.ForWorkpiece(selectedMachiningId);
             var selectedItem = PlayerInventory.FindWorkpiece(selectedMachiningId);
             if (selectedItem == null) return false;
+            if (tutorialPreparation || (questIntegration.Quest.Data.State <= QuestState.FinalInspection && questIntegration.Quest.Data.WorkpieceInstanceId == selectedMachiningId))
+            {
+                if (!questIntegration.CanSelectMaterial(selectedMachiningId, out inventoryMachiningMessage) || !questIntegration.SelectMaterial(selectedMachiningId)) return false;
+                if (!questIntegration.BeginMachining()) return false;
+                OpenPage(HudPage.Lathe); return true;
+            }
             string oldAssignment = repeatQuest?.AssignedWorkpieceInstanceId;
             bool oldHasEvaluation = repeatQuest?.HasEvaluation ?? false;
             string oldFeedback = repeatQuest?.EvaluationFeedback;
@@ -100,8 +120,10 @@ namespace LastMachinist.Machining.Turning
         public bool CompleteParting()
         {
             if(ActiveMachiningWorkpiece==null || !controller.PartingComplete) return false;
+            string sourceId = ActiveMachiningWorkpiece.InstanceId;
             var q=RepeatableQuests?.ForWorkpiece(ActiveMachiningWorkpiece.InstanceId);
             if(!WorkpieceSplitter.TrySplit(PlayerInventory,controller,out var a,out var b)) return false;
+            questIntegration.AfterWorkpieceSplit(sourceId, a, b);
             if(q!=null)
             {
                 float target=q.GeneratedTargetGeometry.Dimensions[q.GeneratedTargetGeometry.Dimensions.Count-1].EndZ;
@@ -150,19 +172,26 @@ namespace LastMachinist.Machining.Turning
             if (!inventoryTurningSelected)
             {
                 GUI.Label(new Rect(420, 112, 720, 32), "1. 가공 방식 선택", label);
-                if (GUI.Button(new Rect(420, 160, 760, 52), "선반 · 회전체 가공", button)) inventoryTurningSelected = true;
+                if (GUI.Button(new Rect(420, 160, 760, 52), "선반 · 회전체 가공", button)) {
+                    inventoryTurningSelected = true;
+                    if (tutorialPreparation) questIntegration.Quest.SelectTurning();
+                }
+                GUI.enabled = questIntegration?.Story.Data.BenchInstalled == true;
+                if (GUI.Button(new Rect(420, 220, 760, 48), "탁상드릴 · 판재 / 각재 구멍 가공", button)) OpenPage(HudPage.BenchDrill);
                 GUI.enabled = false;
-                GUI.Button(new Rect(420, 230, 760, 48), "밀링 · 준비 중", button);
+                GUI.Button(new Rect(420, 280, 760, 48), "밀링 · 준비 중", button);
                 GUI.enabled = true;
                 bool tutorialAvailable = questIntegration != null && (questIntegration.Quest.Data.State == QuestState.ShapeInferred || CanOpenPage(QuestPage.Lathe));
-                if (tutorialAvailable && GUI.Button(new Rect(420, 340, 760, 48), "QUEST 01 · 튜토리얼 소재로 작업", button)) tutorialPreparation = true;
+                if (tutorialAvailable && GUI.Button(new Rect(420, 340, 760, 48), "QUEST 01 · 공작물 선택", button)) PrepareQuest01Workpiece();
                 return;
             }
             var candidates = MachiningCandidates();
-            GUI.Label(new Rect(404, 100, 800, 35), "2. 공작물 선택 · 선반" + (string.IsNullOrEmpty(preparationQuestId) ? "" : " · 반복 의뢰"), label);
+            GUI.Label(new Rect(404, 100, 800, 35), "2. 공작물 선택 · 선반" + (tutorialPreparation ? " · QUEST 01" : string.IsNullOrEmpty(preparationQuestId) ? "" : " · 반복 의뢰"), label);
             GUILayout.BeginArea(new Rect(404, 145, 330, 500), GUI.skin.box);
             machiningListScroll = GUILayout.BeginScrollView(machiningListScroll);
-            if (candidates.Count == 0) GUILayout.Label("사용 가능한 공작물이 없습니다. 탐색에서 적합한 공작물을 확보하세요.", label);
+            if (candidates.Count == 0) GUILayout.Label(ExplorationUnlocked
+                ? "사용 가능한 공작물이 없습니다. 탐색에서 적합한 공작물을 확보하세요."
+                : "사용 가능한 공작물이 없습니다. 이전 저장을 불러오세요.", label);
             for (int i = 0; i < candidates.Count; i++)
             {
                 var item = candidates[i]; var definition = ResolveWorkpieceDefinition(item.WorkpieceDefinitionId);

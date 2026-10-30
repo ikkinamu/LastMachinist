@@ -1,0 +1,367 @@
+LAST MACHINIST VERTICAL SLICE CROSS-PHASE REV 01 EARLY GAME PROGRESSION
+GATE & INITIAL WORKPIECE LENGTH
+
+적용 대상 - PHASE 04: INVENTORY → MACHINING INTEGRATION - PHASE 05:
+REPEATABLE MACHINING QUESTS - PHASE 07: EXPLORATION MAP & REGION
+PROGRESSION
+
+============================================================ 0. 목적
+============================================================
+
+초기 게임 진행 규칙을 다음과 같이 통일한다.
+
+1.  새 게임의 초기 기본 공작물은 정확히 3개다.
+2.  초기 공작물 3개의 Current Actual Length는 각각 100.0 mm다.
+3.  초기 공작물은 Stack하지 않고 각각 독립 WorkpieceInstance다.
+4.  반복 의뢰는 MAIN QUEST 01 멈춰버린 펌프 완료 후 해금한다.
+5.  탐색 시스템도 MAIN QUEST 01 완료 후 해금한다.
+
+MAIN QUEST 01은 Last Machinist 초기 게임의 공통 Tutorial / Progression
+Gate다.
+
+============================================================ 1. 초기
+진행 흐름 ============================================================
+
+새 게임 → 초기 공작물 3개 → MAIN QUEST 01 → 측정 / 형상 추론 / 공작물
+선택 / 선반 가공 / 검사 → MAIN QUEST 01 완료 → 탐색 해금 → 반복 의뢰
+해금 → 이후 Main Quest와 반복 의뢰를 자유롭게 병행
+
+MAIN QUEST 01 완료 전 = 기본 가공 Tutorial 구간 MAIN QUEST 01 완료 후 =
+Vertical Slice 자유 진행 시작
+
+============================================================ 2. 초기
+기본 공작물 ============================================================
+
+새 게임의 초기 공작물은 정확히 3개다.
+
+각 공작물: - 고유 InstanceId - WorkpieceDefinition -
+MaterialDefinition - Current Geometry - ConditionProperties -
+IdentificationState - Current Actual Length = 100.0 mm
+
+100.0 mm는 UI용 고정 문자열이 아니다. 각 Instance의 초기 Current
+Geometry가 실제로 100.0 mm 길이를 가져야 한다.
+
+CurrentActualLength는 Current Geometry에서 계산한다.
+
+직경/재료 등 나머지 초기 사양은 기존 Definition 및 QUEST 01 요구사항을
+유지하며, 본 REV에서 임의로 새 값으로 변경하지 않는다.
+
+============================================================ 3.
+Non-Stack 규칙
+============================================================
+
+Phase 04 REV2의 Non-Stack 규칙을 그대로 유지한다.
+
+FAIL: 기계구조용 탄소강 봉재 : 3개
+
+PASS 예: 기계구조용 탄소강 봉재 | ØXX × 100.0 mm
+기계구조용 탄소강 봉재 | ØXX × 100.0 mm
+기계구조용 탄소강 봉재 | ØXX × 100.0 mm
+
+동일 Definition / Material / Geometry라도 각각 별도 Inventory Entry다.
+
+============================================================ 4. 가공 후
+실제 길이 ============================================================
+
+100.0 mm는 초기값이다.
+
+예: 초기 A = 100.0 mm B = 100.0 mm C = 100.0 mm
+
+B를 Facing하여 2.0 mm 제거한 뒤: A = 100.0 mm B = 98.0 mm C = 100.0 mm
+
+Inventory / Machining Selection / Quest Compatibility는 각 Instance의
+Current Geometry에서 계산한 실제 길이를 사용한다.
+
+초기값 100 mm 또는 Nominal Length를 계속 현재 길이처럼 표시하면 FAIL.
+
+============================================================ 5. MAIN
+QUEST 01의 역할
+============================================================
+
+MAIN QUEST 01 멈춰버린 펌프는 첫 Story Quest이자 초기 시스템 Tutorial
+Gate다.
+
+완료 전 플레이어가 익히는 핵심: - Quest 수락 - 대상 확인 - 측정 - 형상
+추론 - 공작물 선택 - 선반 가공 - 가공 중 측정 - 최종 검사/평가 - Quest
+완료
+
+이 Quest를 완료한 뒤 탐색과 반복 의뢰를 동시에 해금한다.
+
+============================================================ 6. 공통
+해금 조건 ============================================================
+
+공통 조건:
+
+MAIN_QUEST_01.State == Completed
+
+정확한 QuestId / Enum / State 이름은 현재 Quest 시스템 AUDIT 후 기존
+값을 사용한다.
+
+문자열 비교를 여러 UI에 중복 하드코딩하지 않는다. 기존
+Progression/Unlock 구조가 있으면 재사용한다.
+
+권장 개념: IsExplorationUnlocked() IsRepeatableQuestUnlocked()
+
+단, 이를 위해 중복 Progression Manager를 무조건 새로 만들지 않는다.
+
+============================================================ 7. MAIN
+QUEST 01 완료 전 — 탐색
+============================================================
+
+MAIN QUEST 01 완료 전에는 탐색을 사용할 수 없다.
+
+권장: - [탐색] 탭 잠금/비활성화 - 필요 시
+메인 의뢰를 먼저 완료해야 합니다. 안내
+
+Player-facing 경로에서 Region Scene 진입도 차단한다.
+
+기존 Phase 01 테스트용 버튼이나 우회 진입 경로가 실제 게임 UI에 남아
+해금 조건을 우회하면 FAIL.
+
+============================================================ 8. MAIN
+QUEST 01 완료 후 — 탐색
+============================================================
+
+MAIN QUEST 01 완료 시 탐색 시스템을 해금한다.
+
+해금 후: - [탐색] 사용 가능 - Phase 07 지도 UI 사용 가능 - 알려진 Region
+확인 가능 - Accessible Region 진입 가능
+
+중요: 탐색 시스템 해금과 지역 발견은 별개다.
+
+탐색 해금만으로 모든 Region을 자동 Discovered 처리하지 않는다.
+
+폐작업장 권장 흐름: MAIN QUEST 01 완료 → 탐색 해금 → 후속 대화/정보
+Event → 폐작업장 Hidden → Rumored → 지도에 ? Marker 등장
+
+============================================================ 9. MAIN
+QUEST 01 완료 전 — 반복 의뢰
+============================================================
+
+MAIN QUEST 01 완료 전에는 Phase 05 Repeatable Quest를 받을 수 없다.
+
+금지: - 게임 시작 직후 반복 의뢰 등장/수락 - MAIN QUEST 01 진행 중 반복
+의뢰 수락 - 잠긴 반복 의뢰를 다른 UI 경로에서 수락
+
+Quest Window에서는 반복 의뢰 영역을 숨기거나 잠글 수 있다. 현재 UI
+구조에 자연스러운 방식을 사용한다.
+
+============================================================ 10. MAIN
+QUEST 01 완료 후 — 반복 의뢰
+============================================================
+
+MAIN QUEST 01 완료 후 Phase 05 반복 의뢰 시스템을 해금한다.
+
+해금 대상: - 마모된 펌프 보조축 - 교체용 연결핀 - 가이드 롤러축 - 베어링
+지지축 - 밸브 조작축
+
+RepeatableQuestInstance 생성/재생성 규칙은 Phase 05 REV3를 유지한다.
+
+============================================================ 11. 탐색과
+반복 의뢰의 관계
+============================================================
+
+두 시스템은 같은 시점에 해금되지만 서로 종속되지 않는다.
+
+MAIN QUEST 01 완료 후: - 탐색을 먼저 해도 됨. - 반복 의뢰를 먼저 해도
+됨. - 둘을 번갈아 진행해도 됨.
+
+ExplorationUnlocked와 RepeatableQuest 진행 상태를 결합하지 않는다.
+RepeatableQuestUnlocked와 Exploration 진행 상태도 결합하지 않는다.
+
+공통 조건만 MAIN QUEST 01 Completed다.
+
+============================================================ 12. Save /
+Load ============================================================
+
+CASE A — MAIN QUEST 01 미완료 Save Load 후: - 탐색 잠김 - 반복 의뢰
+잠김 - 공작물은 저장 당시 실제 Geometry/길이로 복원
+
+CASE B — MAIN QUEST 01 완료 Save Load 후: - 탐색 해금 유지 - 반복 의뢰
+해금 유지 - Region 진행 상태 유지 - Repeatable Quest 상태 유지
+
+Quest 01 Completed가 Source of Truth라면 Load 후 Unlock 상태를 재계산할
+수 있다.
+
+별도 Unlock Flag를 저장한다면 Quest State와 불일치하지 않아야 한다.
+
+============================================================ 13. 기존
+Save 호환 ============================================================
+
+QUEST 01이 이미 Completed인 기존 Save: → Load 후 탐색/반복 의뢰 사용
+가능.
+
+QUEST 01 미완료 Save: → 실제 Player Progression에서는 두 시스템 잠금.
+
+개발용 Debug Unlock이 필요하면 Player Progression과 분리된 명시적 Debug
+기능으로 둔다.
+
+============================================================ 14. Phase별
+반영 ============================================================
+
+PHASE 04: - 초기 WorkpieceInstance 정확히 3개. - 각 초기 Current Actual
+Length = 100.0 mm. - Geometry가 Source of Truth. - Non-Stack 유지. -
+가공 후 실제 길이 개별 변경. - 기존 REV2에서 길이를 미확정으로 둔
+문구보다 본 REV가 우선한다.
+
+PHASE 05: - Unlock Requirement = MAIN QUEST 01 Completed. - 미완료 시
+반복 의뢰 수락 불가. - 완료 후 기존 5종 Template 활성화. - Target Length
+등 기존 REV3 규칙 유지.
+
+PHASE 07: - Unlock Requirement = MAIN QUEST 01 Completed. - 미완료 시
+탐색 Player-facing 접근/Region 진입 불가. - 완료 후 Map UI 사용 가능. -
+Region Discovery State는 별도 진행. - 폐작업장 Rumored 전환은 후속 정보
+Event에서 수행.
+
+============================================================ 15. OUT OF
+SCOPE ============================================================
+
+-   초기 공작물 개수 변경
+-   초기 공작물 직경/재료 새로 확정
+-   MAIN QUEST 01 내용 전면 재작성
+-   Repeatable Quest 5종 내용 변경
+-   Phase 07 지도 구조 변경
+-   QUEST 02 본체
+-   탁상드릴 회수/설치
+-   차량 시스템
+-   새로운 Tutorial Quest
+-   탐색과 반복 의뢰 사이 강제 진행 순서
+
+============================================================ 16. 구현
+순서 ============================================================
+
+STEP 1 초기 WorkpieceDefinition / WorkpieceInstance 생성 경로 AUDIT.
+
+STEP 2 초기 3개 Current Geometry Length를 100.0 mm로 통일.
+
+STEP 3 Inventory / Machining Selection의 Current Actual Length 확인.
+
+STEP 4 Quest 01 Completed Event/State 확인.
+
+STEP 5 기존 Progression/Unlock 구조 AUDIT.
+
+STEP 6 Exploration Unlock을 Quest 01 Completed에 연결.
+
+STEP 7 Repeatable Quest Unlock을 Quest 01 Completed에 연결.
+
+STEP 8 Phase 07 폐작업장 Rumored Trigger 순서 확인.
+
+STEP 9 Save/Load 복원 확인.
+
+STEP 10 Regression Test.
+
+============================================================ 17. TEST
+============================================================
+
+TEST 01 — New Game EXPECTED: 초기 공작물 정확히 3개.
+
+TEST 02 — Initial Length EXPECTED: 세 Instance Current Actual Length
+모두 100.0 mm.
+
+TEST 03 — Geometry Source EXPECTED: 100.0 mm가 UI 상수가 아니라 Current
+Geometry에서 계산됨.
+
+TEST 04 — Non-Stack EXPECTED: 초기 3개 각각 별도 Entry.
+
+TEST 05 — Individual Machining 하나를 98.0 mm까지 가공. EXPECTED: 해당
+Instance만 98.0 mm.
+
+TEST 06 — Exploration Before Quest01 EXPECTED: MAIN QUEST 01 미완료 시
+탐색 사용 불가.
+
+TEST 07 — Repeatable Before Quest01 EXPECTED: MAIN QUEST 01 미완료 시
+반복 의뢰 사용/수락 불가.
+
+TEST 08 — During Quest01 EXPECTED: Quest Active 중 탐색/반복 의뢰 계속
+잠김.
+
+TEST 09 — Quest01 Complete EXPECTED: Completed 상태 정상 기록.
+
+TEST 10 — Exploration Unlock EXPECTED: 완료 후 탐색 사용 가능.
+
+TEST 11 — Repeatable Unlock EXPECTED: 완료 후 반복 의뢰 사용 가능.
+
+TEST 12 — Exploration First 완료 후 반복 의뢰 없이 탐색. EXPECTED: 정상.
+
+TEST 13 — Repeatable First 완료 후 탐색 없이 반복 의뢰. EXPECTED: 정상.
+
+TEST 14 — Region Discovery Separation EXPECTED: 탐색 해금만으로 모든
+Region 자동 발견되지 않음.
+
+TEST 15 — Abandoned Workshop 후속 정보 Event 발생. EXPECTED: 폐작업장
+Hidden → Rumored.
+
+TEST 16 — Locked Save Quest 01 미완료 Save/Load. EXPECTED: 두 시스템
+잠금 유지.
+
+TEST 17 — Unlocked Save Quest 01 완료 Save/Load. EXPECTED: 두 시스템
+해금 유지.
+
+TEST 18 — Existing Completed Save EXPECTED: Quest 01 Completed 기존
+Save에서도 해금 정상.
+
+TEST 19 — Regression EXPECTED: Inventory / Machining / Measurement /
+Quest / Exploration Map 정상.
+
+TEST 20 — Console EXPECTED: Error 0.
+
+============================================================ 18. PASS
+============================================================
+
+-   초기 공작물 정확히 3개.
+-   각 초기 실제 길이 100.0 mm.
+-   Geometry 기반 Current Actual Length.
+-   공작물 Non-Stack.
+-   MAIN QUEST 01 완료 전 탐색 잠김.
+-   MAIN QUEST 01 완료 전 반복 의뢰 잠김.
+-   MAIN QUEST 01 완료 후 탐색 해금.
+-   MAIN QUEST 01 완료 후 반복 의뢰 해금.
+-   해금 후 두 시스템 독립 진행 가능.
+-   탐색 해금이 모든 Region 자동 발견을 의미하지 않음.
+-   Save/Load 후 진행 상태 유지.
+-   Console Error 0.
+
+============================================================ 19. FAIL
+============================================================
+
+-   초기 길이가 100 mm가 아님.
+-   100 mm를 UI Text에만 하드코딩.
+-   초기 3개 Stack 처리.
+-   Quest 01 완료 전 탐색 진입 가능.
+-   Quest 01 완료 전 반복 의뢰 수락 가능.
+-   Quest 01 완료 후에도 두 시스템 잠김.
+-   탐색 해금과 동시에 모든 Region 자동 발견.
+-   반복 의뢰 해금에 탐색 진행을 강제.
+-   탐색 해금에 반복 의뢰 진행을 강제.
+-   Load 후 Unlock 상태 소실.
+-   Quest State와 Unlock State 충돌.
+-   기존 Phase 04/05/07 기능 회귀.
+
+============================================================ 20. CODEX
+IMPLEMENTATION REPORT
+============================================================
+
+1.  초기 공작물 생성 경로 AUDIT
+2.  초기 3개 Instance 구조
+3.  100.0 mm Geometry 적용 위치
+4.  Current Actual Length 계산 방식
+5.  Quest 01 Completed 상태/Event 위치
+6.  기존 Progression/Unlock 구조
+7.  Exploration Unlock 구현
+8.  Repeatable Quest Unlock 구현
+9.  폐작업장 Rumored Trigger 연결 순서
+10. Save/Load 처리
+11. 기존 Save 호환 처리
+12. TEST 01~20 PASS/FAIL
+13. Console Error 수
+14. 남은 TODO
+
+============================================================ 21. 완료
+기준 ============================================================
+
+새 게임 → 초기 공작물 3개 각각 100.0 mm 확인 → 탐색 잠김 확인 → 반복
+의뢰 잠김 확인 → MAIN QUEST 01 진행/완료 → 탐색 해금 → 반복 의뢰 해금 →
+원하는 쪽부터 진행 가능 → Save → Load → 공작물 실제 상태 및 두 시스템
+해금 상태 유지
+
+위 흐름이 정상 동작하면 CROSS-PHASE REV 01 완료로 본다.

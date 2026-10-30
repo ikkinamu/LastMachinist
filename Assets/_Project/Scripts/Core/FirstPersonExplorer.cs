@@ -18,8 +18,16 @@ namespace LastMachinist.Core
         public event Action InspectionCloseRequested;
         public bool InspectionOpen { get; private set; }
         private int suppressInteractionThroughFrame = -1;
-        public bool CanInteract => isActiveAndEnabled && !MenuOpen && !InspectionOpen && Time.frameCount > suppressInteractionThroughFrame;
+        public bool CanInteract => isActiveAndEnabled && !MenuOpen && !InspectionOpen && !SystemBlocked && Time.frameCount > suppressInteractionThroughFrame;
         public bool MenuOpen { get; private set; }
+        public bool SystemBlocked { get; private set; }
+        public int LastInspectionCloseFrame { get; private set; } = -1;
+        public void SetSystemBlocked(bool blocked)
+        {
+            SystemBlocked = blocked;
+            RefreshCursor();
+            if (!blocked) suppressInteractionThroughFrame = Time.frameCount;
+        }
         public void Initialize(ExplorationRegionDefinition definition, Transform cameraTransform)
         {
             region = definition; eye = cameraTransform; body = GetComponent<CharacterController>();
@@ -42,13 +50,14 @@ namespace LastMachinist.Core
         }
         public void SetInspectionOpen(bool open)
         {
+            if (!open && InspectionOpen) LastInspectionCloseFrame = Time.frameCount;
             InspectionOpen = open;
             RefreshCursor();
             if (!open) suppressInteractionThroughFrame = Time.frameCount;
         }
         private void RefreshCursor()
         {
-            bool free = MenuOpen || InspectionOpen;
+            bool free = MenuOpen || InspectionOpen || SystemBlocked;
             Cursor.lockState = free ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = free;
         }
@@ -58,27 +67,29 @@ namespace LastMachinist.Core
             if (escape.WasPressedThisFrame())
             {
                 if (InspectionOpen) InspectionCloseRequested?.Invoke();
-                else SetMenu(!MenuOpen);
+                else if (GameplaySystemMenu.Current == null) SetMenu(!MenuOpen);
             }
             // Batch tests have no focused Game window and cannot retain cursor lock.
-            if (!Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && !MenuOpen && !InspectionOpen) SetMenu(true);
-            if (!MenuOpen && !InspectionOpen)
+            if (!Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && !MenuOpen && !InspectionOpen && !SystemBlocked) SetMenu(true);
+            if (!Application.isBatchMode && MenuOpen && !SystemBlocked && GameplaySystemMenu.Current != null)
+                GameplaySystemMenu.Current.OpenMenu();
+            if (!MenuOpen && !InspectionOpen && !SystemBlocked)
             {
                 ApplyLook(look.ReadValue<Vector2>());
                 if (interact.WasPressedThisFrame()) RequestInteract();
             }
-            MoveStep(MenuOpen ? Vector2.zero : move.ReadValue<Vector2>(), Time.deltaTime);
+            MoveStep(MenuOpen || SystemBlocked ? Vector2.zero : move.ReadValue<Vector2>(), Time.deltaTime);
         }
         public void ApplyLook(Vector2 delta)
         {
-            if (InspectionOpen) return;
+            if (InspectionOpen || SystemBlocked) return;
             transform.Rotate(0, delta.x * region.MouseSensitivity, 0);
             pitch = Mathf.Clamp(pitch - delta.y * region.MouseSensitivity, -85, 85);
             eye.localRotation = Quaternion.Euler(pitch, 0, 0);
         }
         public void MoveStep(Vector2 direction, float seconds)
         {
-            if (InspectionOpen) return;
+            if (InspectionOpen || SystemBlocked) return;
             direction = Vector2.ClampMagnitude(direction, 1);
             if (body.isGrounded && verticalSpeed < 0) verticalSpeed = -2;
             verticalSpeed = Mathf.Max(-40, verticalSpeed - 9.81f * seconds);

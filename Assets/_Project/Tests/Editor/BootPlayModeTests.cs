@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using LastMachinist.Core;
 using LastMachinist.Evaluation;
@@ -50,6 +51,12 @@ namespace LastMachinist.Tests
             overlay.Resume(quest);
             flow.AcknowledgeDialogue();
             Assert.That(quest.Quest.Data.State, Is.EqualTo(QuestState.Offered));
+            Assert.That(quest.Inventory.Workpieces.Count, Is.EqualTo(3));
+            Assert.That(quest.Inventory.Workpieces.All(p => p.MachiningWorkpiece.Geometry.RoundProfile.GetAxialLength() == 100), Is.True);
+            Assert.That(quest.RepeatableQuests.Data.Instances, Is.Empty);
+            lathe.OpenPage(HudPage.Exploration);
+            Assert.That(lathe.CurrentPage, Is.Not.EqualTo(HudPage.Exploration));
+            Assert.That(LastMachinist.Core.ExplorationSession.Enter(Resources.Load<LastMachinist.Core.ExplorationRegionDefinition>("ExplorationRegions/TestYard"), lathe), Is.False);
             Assert.That(quest.GoToFarm(), Is.False);
             Assert.That(quest.Quest.Accept(), Is.True);
             Assert.That(quest.GoToFarm(), Is.True); world.RestoreLocation("Farm");
@@ -70,17 +77,33 @@ namespace LastMachinist.Tests
                 quest.Measurement.Select(point, "old_vernier", true);
                 Assert.That(quest.RecordMeasurement(quest.Measurement.Record(999)), Is.True);
             }
-            Assert.That(quest.ObserveL3Wear() && quest.InferShapeFromMemo() && quest.Quest.SelectTurning() && quest.SelectMaterial(), Is.True);
+            Assert.That(quest.ObserveL3Wear() && quest.InferShapeFromMemo(), Is.True);
+            Assert.That(quest.RepeatableQuests.Data.Instances, Is.Empty);
+            lathe.OpenPage(HudPage.Exploration);
+            Assert.That(lathe.CurrentPage, Is.Not.EqualTo(HudPage.Exploration));
+            Assert.That(quest.Inventory.Workpieces.Count, Is.EqualTo(3));
+            var selectedId = quest.Inventory.Workpieces[1].InstanceId;
+            Assert.That(lathe.PrepareQuest01Workpiece(), Is.True);
+            Assert.That(lathe.SelectInventoryWorkpiece(selectedId), Is.True);
+            Assert.That(lathe.StartInventoryMachining(), Is.True);
+            Assert.That(lathe.ActiveMachiningWorkpiece.InstanceId, Is.EqualTo(selectedId));
+            Assert.That(lathe.Controller.Profile.GetAxialLength(), Is.EqualTo(100), "Initial quest stock is already the target length.");
             yield return null;
             yield return null;
             Assert.That(lathe.Controller.Workpiece, Is.SameAs(quest.CurrentWorkpiece));
             Assert.That(lathe.Controller.SpindleRunning, Is.False);
             Assert.That(lathe.gameObject.activeSelf && lathe.enabled, Is.True);
             Assert.That(lathe.GetComponentInChildren<MeshFilter>().sharedMesh.vertexCount, Is.GreaterThan(0));
-            Assert.That(quest.BeginMachining(), Is.True);
-            Assert.That(lathe.CurrentPage, Is.EqualTo(HudPage.MachineSelect));
+            Assert.That(quest.Quest.Data.State, Is.EqualTo(QuestState.Machining));
+            Assert.That(lathe.CurrentPage, Is.EqualTo(HudPage.Lathe));
             lathe.OpenPage(HudPage.Lathe);
             var router = lathe.Router;
+            var systemMenu = GameplaySystemMenu.Current;
+            Assert.That(systemMenu, Is.Not.Null);
+            systemMenu.OpenMenu();
+            Assert.That(router.IsActive, Is.False);
+            systemMenu.CloseMenu();
+            Assert.That(router.IsActive, Is.True);
             router.SetMovementScale(MovementScale.Medium);
             router.ApplyHandwheelRotation(Axis.Z, LatheDialMath.MillimetresToDegrees(101 - lathe.Controller.ToolZ, MovementScale.Medium));
             router.SetSpindleRunning(true);
@@ -147,13 +170,20 @@ namespace LastMachinist.Tests
             Assert.That(restored.Quest.Data.WorkMemo.RecordedText("L1_Diameter"), Is.EqualTo("999"));
             Assert.That(lathe.Controller.Workpiece, Is.SameAs(restored.CurrentWorkpiece));
             Assert.That(restored.CompleteInstallation(), Is.True);
+            Assert.That(restored.Inventory.Workpieces.Count, Is.EqualTo(2), "The two unused initial pieces remain after installation.");
             world.RestoreLocation("Workshop"); world.RestoreLocation("Farm");
             yield return null;
             Assert.That(restored.PumpRepaired, Is.True);
+            Assert.That(restored.RepeatableQuests.Data.Instances.Count, Is.EqualTo(3));
+            Assert.That(restored.Regions.Find(LastMachinist.Core.RegionProgression.AbandonedWorkshopId).DiscoveryState,
+                Is.EqualTo(LastMachinist.Core.RegionDiscoveryState.Hidden));
             Assert.That(world.GetComponent<AudioSource>(), Is.Not.Null, "Repaired farm initializes its pump audio component.");
             world.RestoreLocation("Workshop"); overlay.Resume(restored);
             Assert.That(lathe.gameObject.activeSelf && lathe.enabled, Is.True, "Loaded workshop must reactivate the lathe.");
             Assert.That(lathe.CurrentPage, Is.EqualTo(HudPage.Workshop), "Completed saves reopen the workshop overview.");
+            lathe.OpenPage(HudPage.Exploration);
+            Assert.That(lathe.CurrentPage, Is.EqualTo(HudPage.Exploration), "Completed quest unlocks the player map after load.");
+            lathe.OpenPage(HudPage.Workshop);
             Assert.That(lathe.Router.IsActive, Is.False, "The workshop overview must not enable machining input.");
         }
 

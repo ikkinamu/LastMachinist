@@ -11,6 +11,8 @@ namespace LastMachinist.Core
         private float range;
         private LastMachinist.Inventory.InventoryState inventory;
         private Vector2 scroll;
+        public System.Action<InspectableItem> ItemInspected;
+        public System.Func<InspectableItem, bool> RecoverEquipment;
         public InspectableItem Target { get; private set; }
         public IReadOnlyCollection<string> RecoveredItemIds => recovered.ItemIds;
         public bool IsOpen => Target != null;
@@ -33,6 +35,7 @@ namespace LastMachinist.Core
             if (item == null || item.Definition == null || !item.isActiveAndEnabled ||
                 string.IsNullOrWhiteSpace(item.RecoveryKey) || recovered.Contains(item.RecoveryKey)) return;
             Target = item; scroll = Vector2.zero;
+            ItemInspected?.Invoke(item);
             player.SetInspectionOpen(true);
         }
 
@@ -42,11 +45,13 @@ namespace LastMachinist.Core
             var data = Target.Definition;
             string recoveryKey = Target.RecoveryKey;
             if (!data.CanRecover || string.IsNullOrWhiteSpace(recoveryKey) || recovered.Contains(recoveryKey)) return false;
+            if (data.ItemId == LastMachinist.Quest.WorkshopStory.BenchDiscoveryId && (RecoverEquipment == null || !RecoverEquipment(Target))) return false;
             // A failed inventory write leaves both the world object and session log untouched.
             if (data.Workpiece != null && (Target.Instance == null || inventory == null || !inventory.AddWorkpiece(Target.Instance))) return false;
             if (!recovered.TryRecord(recoveryKey)) return false;
             Target.gameObject.SetActive(false);
             Close();
+            ExplorationSession.NotifyRecovery();
             return true;
         }
 

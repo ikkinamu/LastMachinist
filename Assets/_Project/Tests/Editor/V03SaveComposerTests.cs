@@ -35,7 +35,8 @@ namespace LastMachinist.Tests
             var integration = new Quest01Integration(inventory);
             var data = SaveGameComposer.Capture(integration, "Workshop");
             Assert.That(data.CurrentSceneId, Is.EqualTo("Workshop"));
-            Assert.That(data.Inventory.GetQuantity(Quest01Integration.StockItemId), Is.EqualTo(3));
+            Assert.That(data.Inventory.GetQuantity(Quest01Integration.StockItemId), Is.Zero);
+            Assert.That(data.Inventory.Workpieces.Count, Is.EqualTo(3));
             Assert.That(data.Quest, Is.SameAs(integration.Quest.Data));
         }
     }

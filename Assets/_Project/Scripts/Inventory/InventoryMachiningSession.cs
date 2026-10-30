@@ -10,7 +10,14 @@ namespace LastMachinist.Inventory
         private readonly InventoryState inventory;
         private readonly Func<string, WorkpieceDefinition> resolve;
         private bool starting;
-        public WorkpieceInstance Active => inventory.FindWorkpiece(inventory.ActiveMachiningInstanceId);
+        public WorkpieceInstance Active
+        {
+            get
+            {
+                var item = inventory.FindWorkpiece(inventory.ActiveMachiningInstanceId);
+                return item?.MachiningWorkpiece?.Geometry?.Type == GeometryType.RoundProfile ? item : null;
+            }
+        }
         public InventoryMachiningSession(InventoryState inventory, Func<string, WorkpieceDefinition> resolve)
         { this.inventory = inventory; this.resolve = resolve; }
         public static bool SupportsTurning(WorkpieceDefinition definition)
@@ -18,6 +25,13 @@ namespace LastMachinist.Inventory
             if (definition == null || definition.ShapeType != WorkpieceShape.RoundBar || definition.NominalDimensions == null) return false;
             var d = definition.NominalDimensions;
             return d.Diameter > 0 && d.Length > 0 && !float.IsInfinity(d.Diameter) && !float.IsInfinity(d.Length);
+        }
+        public static string TurningCompatibilityReason(WorkpieceDefinition definition)
+        {
+            if (definition == null) return "공작물 정의를 찾을 수 없습니다.";
+            if (definition.ShapeType == WorkpieceShape.Tube) return "현재 선반은 튜브 내경 형상을 보존하지 않아 지원하지 않습니다.";
+            if (definition.ShapeType != WorkpieceShape.RoundBar) return "현재 선반은 환봉만 지원합니다. 각재·판재는 탁상드릴/밀링 설비가 필요합니다.";
+            return SupportsTurning(definition) ? string.Empty : "환봉의 현재 치수 정보가 올바르지 않습니다.";
         }
         public List<WorkpieceInstance> Candidates()
         {
@@ -28,7 +42,7 @@ namespace LastMachinist.Inventory
         }
         public bool TryBegin(string instanceId, Func<WorkpieceState, bool> initialize)
         {
-            if (starting || Active != null || initialize == null) return false;
+            if (starting || !string.IsNullOrEmpty(inventory.ActiveMachiningInstanceId) || initialize == null) return false;
             var item = inventory.FindWorkpiece(instanceId);
             if (item == null || item.Availability != WorkpieceAvailability.Available) return false;
             var definition = resolve(item.WorkpieceDefinitionId);
@@ -50,6 +64,6 @@ namespace LastMachinist.Inventory
             catch (Exception) { return false; }
             finally { starting = false; }
         }
-        public void End() => inventory.ReleaseMachining();
+        public void End() { if (Active != null) inventory.ReleaseMachining(); }
     }
 }
